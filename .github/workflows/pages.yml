@@ -1,0 +1,43 @@
+name: Publicar demonstração no GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+      - name: Compilar para o caminho do repositório
+        run: npm run build -- --base=/ProjetoEscala/
+      - name: Obter branch de publicação
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: pages-output
+      - name: Atualizar somente os arquivos gerados
+        working-directory: pages-output
+        run: |
+          git rm -r --ignore-unmatch .
+          cp -a ../dist/. .
+          touch .nojekyll
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'Atualizar demonstração estática'
+            git push origin HEAD:gh-pages
+          fi
