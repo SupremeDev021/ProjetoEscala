@@ -19,7 +19,7 @@ Para uma instalação reproduzível com o lockfile: `npm ci`. O servidor de dese
 
 ```sh
 npm run build       # TypeScript e bundle de produção
-npm test            # 6 testes das regras de domínio
+npm test            # 11 testes de domínio e dashboard
 npm run preview     # servir o build localmente
 ```
 
@@ -81,3 +81,21 @@ Após o GitHub concluir a publicação, os endereços previstos são:
 - Dashboard: https://supremedev021.github.io/ProjetoEscala/#/dashboard
 
 O build para Pages usa `npm run build -- --base=/ProjetoEscala/`. Nesse modo, as rotas usam hash (`#/escala`, `#/cadastros` etc.) para que recarregar ou abrir links diretamente funcione sem backend. Em desenvolvimento na raiz, as rotas continuam sem hash. Os dados continuam locais em cada navegador, sem sincronização entre dispositivos.
+
+## Dashboard modernizado
+
+O dashboard externo é independente das telas administrativas, que foram preservadas. Os módulos ficam em `src/dashboard/`: `Dashboard.tsx` contém cabeçalho, relógio, indicador de plantão, métricas e cartões de função; `data.ts` é a camada de acesso e projeção; `dashboard.css` isola os estilos. Não foram adicionadas dependências.
+
+- `/dashboard` abre a unidade padrão; `/painel/unidade/upa-cidade-de-deus`, `/painel/unidade/cer-barra` e os demais slugs exibem exclusivamente a unidade do endereço. No GitHub Pages use `#/painel/unidade/upa-cidade-de-deus` após `/ProjetoEscala/`.
+- O horário real usa o relógio do dispositivo no fuso `America/Sao_Paulo`, atualizado a cada segundo. Diurno: 07h até 18h59; noturno: 19h até 06h59. Antes de 07h, a data de referência continua sendo o dia anterior. Ao voltar à aba, o horário é sincronizado imediatamente.
+- O painel **Demonstração** reúne seleção da unidade, fonte, simulador e atalhos de transição. O relógio simulado pode ser pausado. “Voltar ao horário real” restaura a fonte local e o horário do dispositivo.
+- A fonte padrão lê somente `published` do administrativo no mesmo navegador. O cenário fictício de 10 e 11/11/2026 é independente e nunca grava no administrativo. Atalhos de horário carregam esse cenário. “Simular atualização” amplia a composição apenas no cenário fictício; na fonte local o botão consulta novamente as publicações.
+- Os profissionais são agrupados por cargo, ordenados alfabeticamente e deduplicados. Novos cargos na fonte aparecem automaticamente. Especialidade e setor opcional só aparecem quando cadastrados. Vínculos de outras unidades e rascunhos são descartados pela projeção. “Sem escala cadastrada” é diferente de publicação com lista vazia.
+- Os indicadores mostram escalados, nunca presença confirmada. Enfermagem agrega enfermeiros e técnicos. Última atualização representa o timestamp das publicações exibidas, e não o relógio ou o instante da consulta.
+- **Modo TV** aumenta as fontes. **Tela cheia** usa a API nativa do navegador. A rolagem avança lentamente, pausa por 15 segundos após interação e aguarda 7 segundos no final antes de voltar ao início. Movimento reduzido desabilita rolagem e animações. O painel de controles aberto também pausa a rolagem.
+- Sem rede, os dados locais continuam disponíveis com aviso. Erros de leitura preservam o último conjunto válido e sinalizam indisponibilidade. Não há sincronização remota, autenticação ou promessa de atualização por servidor.
+- Não existe arquivo oficial de logo no projeto. O cabeçalho usa um espaço reservado identificado, sem copiar o brasão ou a imagem fornecida. Substitua esse bloco por uma imagem oficial autorizada quando houver o arquivo.
+
+A interface `DashboardRepository` permite substituir o carregamento local por uma API sem reescrever os cartões. Na integração futura, esse endpoint deve entregar somente publicações autorizadas para a unidade; Supabase/PostgreSQL/RLS e autenticação continuam fora do MVP. O painel de demonstração deve ser removido ou desabilitado na versão de produção.
+
+`npm test` executa 11 testes, incluindo viradas exatas, madrugada/ano/mês, cargos, unidades, indicadores, deduplicação, rascunhos, estados vazios e as regressões administrativas. A interface foi verificada com Chromium em desktop, tablet, celular e modo TV, incluindo tela cheia, relógio automático, retorno à aba e estados de falha.
