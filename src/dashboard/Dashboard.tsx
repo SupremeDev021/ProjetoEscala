@@ -39,6 +39,7 @@ import {
 } from "./data";
 import { STORAGE_KEY } from "../domain";
 import "./dashboard.css";
+import "./clean.css";
 const fmtDate = (date: string) =>
   new Date(date + "T12:00:00-03:00").toLocaleDateString("pt-BR", {
     timeZone: ZONE,
@@ -349,52 +350,56 @@ export function DashboardPage() {
         </section>
       )}
       <main className="pd-main">
-        <div className="pd-toolbar">
-          <span>
-            <span
-              className={"pd-status-dot " + (offline || error ? "warning" : "")}
-            />
-            {error
-              ? "Dados indisponíveis"
-              : offline
-                ? "Sem conexão · dados locais"
-                : "Visualização de escalas publicadas"}
-          </span>
-          <div>
-            <button
-              className={"pd-button " + (tv ? "pd-active" : "")}
-              aria-pressed={tv}
-              onClick={() => setTv(!tv)}
-            >
-              <Monitor size={16} />
-              {tv ? "Sair do modo TV" : "Modo TV"}
-            </button>
-            <button className="pd-button" onClick={toggleFullscreen}>
-              {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-              <span>{fullscreen ? "Sair da tela cheia" : "Tela cheia"}</span>
-            </button>
-            <button
-              className="pd-button"
-              disabled={busy}
-              onClick={() => {
-                if (source === "example") setRevision((r) => r + 1);
-                else void refresh();
-                setMessage(
-                  source === "example"
-                    ? "Atualização simulada: composição fictícia ampliada."
-                    : "Publicações locais consultadas novamente.",
-                );
-              }}
-            >
-              <RefreshCw size={16} className={busy ? "pd-spin" : ""} />
-              <span>
-                {source === "example"
-                  ? "Simular atualização"
-                  : "Atualizar dados"}
-              </span>
-            </button>
+        {controls && (
+          <div className="pd-toolbar">
+            <span>
+              <span
+                className={
+                  "pd-status-dot " + (offline || error ? "warning" : "")
+                }
+              />
+              {error
+                ? "Dados indisponíveis"
+                : offline
+                  ? "Sem conexão · dados locais"
+                  : "Visualização de escalas publicadas"}
+            </span>
+            <div>
+              <button
+                className={"pd-button " + (tv ? "pd-active" : "")}
+                aria-pressed={tv}
+                onClick={() => setTv(!tv)}
+              >
+                <Monitor size={16} />
+                {tv ? "Sair do modo TV" : "Modo TV"}
+              </button>
+              <button className="pd-button" onClick={toggleFullscreen}>
+                {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+                <span>{fullscreen ? "Sair da tela cheia" : "Tela cheia"}</span>
+              </button>
+              <button
+                className="pd-button"
+                disabled={busy}
+                onClick={() => {
+                  if (source === "example") setRevision((r) => r + 1);
+                  else void refresh();
+                  setMessage(
+                    source === "example"
+                      ? "Atualização simulada: composição fictícia ampliada."
+                      : "Publicações locais consultadas novamente.",
+                  );
+                }}
+              >
+                <RefreshCw size={16} className={busy ? "pd-spin" : ""} />
+                <span>
+                  {source === "example"
+                    ? "Simular atualização"
+                    : "Atualizar dados"}
+                </span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         {(offline || error) && (
           <div className="pd-alert" role="status">
             <WifiOff size={18} />
@@ -415,7 +420,7 @@ export function DashboardPage() {
               {unit?.name ||
                 (busy ? "Carregando unidade…" : "Unidade não encontrada")}
             </h1>
-            <p>Profissionais escalados para cuidar, em cada plantão.</p>
+
             <div className="pd-hero-tags">
               <span>
                 <ShieldCheck size={15} />
@@ -449,7 +454,7 @@ export function DashboardPage() {
           </div>
         </section>
         <ShiftIndicator clock={clock} simulated={Boolean(simulation)} />
-        {simulation && (
+        {simulation && controls && (
           <div className="pd-sim-notice">
             <Clock3 size={16} />
             <span>
@@ -515,7 +520,6 @@ export function DashboardPage() {
               </div>
               <div className="pd-section-title">
                 <div>
-                  <span className="pd-overline">QUEM CUIDA NESTE PLANTÃO</span>
                   <h2>Equipes por função</h2>
                 </div>
                 <span>
@@ -551,14 +555,16 @@ export function DashboardPage() {
                 </div>
               )}
               <div className="pd-role-grid">
-                {result.groups.map((group) => (
-                  <RoleCard
-                    key={group.role.id}
-                    name={group.role.name}
-                    professionals={group.professionals}
-                    state={group.state}
-                  />
-                ))}
+                {result.groups
+                  .filter((group) => group.state !== "missing")
+                  .map((group) => (
+                    <RoleCard
+                      key={group.role.id}
+                      name={group.role.name}
+                      professionals={group.professionals}
+                      state={group.state}
+                    />
+                  ))}
               </div>
             </>
           )
