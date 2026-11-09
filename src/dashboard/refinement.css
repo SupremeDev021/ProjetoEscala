@@ -408,3 +408,86 @@
     gap: 7px;
   }
 }
+/* Plantão legível à distância; modo TV é o estado inicial do painel. */
+.rs-clock .rs-shift {
+  padding: 13px 18px;
+  gap: 13px;
+  margin-top: 9px;
+}
+.rs-clock .rs-shift h2,
+.tv-mode .rs-clock .rs-shift h2 {
+  font-size: 22px;
+  font-weight: 750;
+}
+.rs-clock .rs-shift > span {
+  font-size: 19px;
+  font-weight: 600;
+  padding-left: 13px;
+}
+.rs-clock .rs-shift svg {
+  width: 24px;
+  height: 24px;
+}
+.rs-brand img {
+  max-width: 280px;
+  max-height: 88px;
+  object-fit: contain;
+}
+.rs-topline,
+.tv-mode .rs-topline {
+  min-height: 99px;
+}
+@media (min-width: 2800px) {
+  .rs-clock .rs-shift h2,
+  .tv-mode .rs-clock .rs-shift h2 {
+    font-size: 32px;
+  }
+  .rs-clock .rs-shift > span {
+    font-size: 27px;
+  }
+  .rs-brand img {
+    max-width: 390px;
+    max-height: 115px;
+  }
+}
+@media (max-width: 1000px) {
+  .rs-clock .rs-shift {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 7px;
+    padding: 11px 13px;
+  }
+  .rs-clock .rs-shift h2,
+  .tv-mode .rs-clock .rs-shift h2 {
+    font-size: 19px;
+  }
+  .rs-clock .rs-shift > span {
+    font-size: 17px;
+    border: 0;
+    padding: 0;
+  }
+  .rs-clock .rs-shift svg {
+    display: none;
+  }
+}
+@media (max-width: 650px) {
+  .rs-clock .rs-shift {
+    padding: 9px 10px;
+    gap: 6px;
+  }
+  .rs-clock .rs-shift h2,
+  .tv-mode .rs-clock .rs-shift h2 {
+    font-size: 15px;
+  }
+  .rs-clock .rs-shift > span {
+    font-size: 14px;
+  }
+  .rs-brand img {
+    max-width: 205px;
+    max-height: 65px;
+  }
+  .rs-topline,
+  .tv-mode .rs-topline {
+    min-height: 80px;
+  }
+}

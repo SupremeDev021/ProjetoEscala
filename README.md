@@ -119,3 +119,9 @@ Validações: build para GitHub Pages, 11 testes de domínio/plantões e Chromiu
 ### Refinamento visual da apresentação
 
 O acabamento atual preserva carrossel, tempos, paginação, dados, rotas e plantões. `refinement.css` aplica a faixa azul `#07538A → #087DC0`, o nome da unidade em peso 800 e nomes dos profissionais em peso 700 sobre linhas suaves `#F4F8FC`. Os ícones e contadores do cargo são apenas apresentação; nenhum estado, intervalo ou filtro foi alterado. O indicador de plantão foi reposicionado junto ao relógio. A imagem oficial continua usando o mesmo ponto de entrada documentado acima.
+
+### Abertura direta em TV
+
+O dashboard público agora inicia com modo TV ativado e horário real de São Paulo. A interface de demonstração, simulador e os textos de aviso solicitados foram retirados da tela pública. O carrossel continua automático, com setas e pausa. O plantão e os horários ficaram maiores. Os dados continuam exclusivamente locais/publicados; sem publicação na data e no turno atuais, o painel apresenta o estado vazio. Os rótulos e as funcionalidades da área administrativa foram preservados.
+
+O navegador exige uma interação para entrar em tela cheia nativa; o botão continua disponível. O layout TV e a reprodução dos slides já estão ativos na abertura, sem depender desse botão. A logo deve ser incluída como arquivo em `src/assets/logo-rio-saude.png`, `.svg` ou `.webp`; o cabeçalho passa a carregá-la automaticamente no próximo build.

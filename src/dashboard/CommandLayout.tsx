@@ -1,11 +1,4 @@
-import {
-  Sun,
-  Moon,
-  Settings2,
-  Monitor,
-  Maximize,
-  Minimize,
-} from "lucide-react";
+import { Sun, Moon, Monitor, Maximize, Minimize } from "lucide-react";
 import { saoPauloClock, ZONE } from "./data";
 type Clock = ReturnType<typeof saoPauloClock>;
 const logos = import.meta.glob("../assets/logo-rio-saude.{png,svg,webp}", {
@@ -27,9 +20,6 @@ export function CommandHeader({
   unitName,
   clock,
   now,
-  simulated,
-  controls,
-  onToggleControls,
   tv,
   onToggleTv,
   fullscreen,
@@ -38,9 +28,6 @@ export function CommandHeader({
   unitName: string;
   clock: Clock;
   now: Date;
-  simulated: boolean;
-  controls: boolean;
-  onToggleControls: () => void;
   tv: boolean;
   onToggleTv: () => void;
   fullscreen: boolean;
@@ -56,13 +43,11 @@ export function CommandHeader({
           ) : (
             <div className="rs-logo-slot">
               <b>Rio Saúde</b>
-              <small>Espaço reservado para logo oficial</small>
             </div>
           )}
           <span />
           <div>
             <b>PAINEL DE ESCALAS</b>
-            <small>Dados fictícios · Demonstração</small>
           </div>
         </div>
         <div className="rs-actions">
@@ -81,14 +66,6 @@ export function CommandHeader({
           >
             {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
           </button>
-          <button
-            className="pd-button"
-            aria-label="Demonstração"
-            aria-expanded={controls}
-            onClick={onToggleControls}
-          >
-            <Settings2 size={17} />
-          </button>
         </div>
       </div>
       <div className="rs-unit-line">
@@ -97,9 +74,7 @@ export function CommandHeader({
           <h1>{unitName}</h1>
         </div>
         <div className="rs-clock">
-          <span className="rs-eyebrow">
-            {simulated ? "HORÁRIO SIMULADO" : "HORÁRIO DE SÃO PAULO"}
-          </span>
+          <span className="rs-eyebrow">HORÁRIO DE SÃO PAULO</span>
           <time dateTime={now.toISOString()}>{clock.time}</time>
           <span>
             {new Intl.DateTimeFormat("pt-BR", {
