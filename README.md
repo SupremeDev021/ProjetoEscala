@@ -100,14 +100,18 @@ A interface `DashboardRepository` permite substituir o carregamento local por um
 
 `npm test` executa 11 testes, incluindo viradas exatas, madrugada/ano/mês, cargos, unidades, indicadores, deduplicação, rascunhos, estados vazios e as regressões administrativas. A interface foi verificada com Chromium em desktop, tablet, celular e modo TV, incluindo tela cheia, relógio automático, retorno à aba e estados de falha.
 
-## Rio Saúde Command Center
+## Dashboard em slides por função
 
-O redesign atual adota a paleta azul-marinho `#06192D`, azul institucional `#064E83` e ciano `#00C8F8`. O dashboard foi reestruturado em `CommandHeader`, `CommandSummary` e `RoleSection`, em `src/dashboard/CommandLayout.tsx`, com uma única folha de estilos `dashboard.css`. A área administrativa e a camada de dados permanecem intactas.
+A versão atual usa fundo branco e **um único cargo por slide**. `CommandLayout.tsx` contém o cabeçalho persistente; `RoleCarousel.tsx` controla a apresentação e as listas, com estilos em `dashboard.css`. A área administrativa e as regras de dados permanecem intactas.
 
-As funções são seções de largura total, sempre empilhadas verticalmente: médicos, enfermeiros, técnicos de enfermagem, maqueiros e os demais cargos da fonte. Os nomes são listas ordenadas por ordem alfabética, com numeração apenas visual, nunca classificação. Não há cartões de funções lado a lado em nenhuma resolução. No modo TV, apenas nomes de uma mesma função podem ocupar duas colunas em telas grandes. O cabeçalho fica fixo e compacto durante a rolagem.
+A ordem inicial é Médicos, Técnicos de Enfermagem, Enfermeiros, Maqueiros e os demais cargos cadastrados. Funções sem nomes também possuem slide com estado vazio. Apenas o slide atual está montado: nenhum nome de outra função aparece simultaneamente.
 
-O resumo apresenta total de escalados, funções ocupadas, plantão e data de referência. Controles de demonstração continuam recolhidos, enquanto modo TV e tela cheia estão disponíveis no cabeçalho. O relógio, as viradas de plantão, publicações, filtros por unidade e simulador continuam funcionando.
+A reprodução avança a cada 10 segundos, inclusive fora do modo TV. É possível pausar/retomar, navegar com setas na tela ou teclas esquerda/direita. Interações manuais aguardam 15 segundos antes de retomar; foco, ponteiro sobre a apresentação, controles abertos ou aba oculta suspendem o avanço. Ao retornar à aba, há um novo intervalo de leitura, sem saltar diversos slides de uma vez. O checkbox no painel de demonstração desabilita a reprodução automática.
 
-Para inserir a logo oficial autorizada, adicione **um** arquivo `src/assets/logo-rio-saude.png`, `.svg` ou `.webp` e refaça o build. O componente inclui essa imagem automaticamente. Sem o arquivo, há somente um espaço reservado textual identificado; nenhum símbolo institucional é recriado ou substituído por ícone genérico.
+Listas longas têm páginas internas. Todas as páginas de um cargo são exibidas antes do próximo cargo. O contador diferencia “Slide 1 de 6” de “Página 2 de 3 desta função”. O número de nomes por página se adapta à resolução e ao modo TV; duas colunas são usadas somente dentro do mesmo cargo quando há muitos nomes. Os números da lista são apenas ordem visual alfabética.
 
-Validação visual realizada no Chromium em 390, 768, 1440, 1920 e 3840 pixels de largura, verificando ordem, empilhamento vertical, ausência de overflow, modo TV e tela cheia. Os 11 testes de domínio/dashboard continuam cobrindo plantões, datas, unidades, publicações e regressões administrativas.
+Cabeçalho, relógio de São Paulo e plantão se mantêm durante a troca de slides. Unidade, data de referência ou plantão novos reiniciam a apresentação. A virada noturna após meia-noite, o modo TV, tela cheia, a fonte de publicações e o simulador continuam funcionando. Rascunhos e nomes de outras unidades permanecem excluídos.
+
+Não foi fornecido arquivo oficial de logo: há um espaço reservado textual identificado. Para ativar a imagem oficial, adicione **um** arquivo `src/assets/logo-rio-saude.png`, `.svg` ou `.webp` e refaça o build. O cabeçalho inclui essa imagem automaticamente; nenhum símbolo institucional é recriado.
+
+Validações: build para GitHub Pages, 11 testes de domínio/plantões e Chromium em celular, tablet, Full HD e 4K, cobrindo um cargo por slide, reprodução automática, pausa/retomada, setas, paginação de 30 nomes, unidade e plantão.

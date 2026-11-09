@@ -27,7 +27,8 @@ import {
 } from "./data";
 import { STORAGE_KEY } from "../domain";
 import "./dashboard.css";
-import { CommandHeader, CommandSummary, RoleSection } from "./CommandLayout";
+import { CommandHeader } from "./CommandLayout";
+import { RoleCarousel } from "./RoleCarousel";
 const fmtUpdated = (date: string) =>
   new Date(date).toLocaleString("pt-BR", { timeZone: ZONE });
 function useClock(simulation: string, playing: boolean) {
@@ -74,7 +75,6 @@ export function DashboardPage() {
   const [fullscreen, setFullscreen] = useState(false);
   const [autoscroll, setAutoscroll] = useState(true);
   const [message, setMessage] = useState("");
-  const lastInteraction = useRef(0);
   const tick = useClock(simulation, playing);
   const clock = saoPauloClock(tick);
   const request = useRef(0);
@@ -127,48 +127,6 @@ export function DashboardPage() {
     const id = setTimeout(() => setMessage(""), 5000);
     return () => clearTimeout(id);
   }, [message]);
-  useEffect(() => {
-    if (
-      !tv ||
-      !autoscroll ||
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    )
-      return;
-    const pause = () => {
-      lastInteraction.current = Date.now();
-    };
-    ["pointerdown", "pointermove", "wheel", "keydown", "touchstart"].forEach(
-      (type) => window.addEventListener(type, pause, { passive: true }),
-    );
-    let bottomSince = 0;
-    const id = setInterval(() => {
-      if (
-        document.hidden ||
-        controls ||
-        Date.now() - lastInteraction.current < 15000
-      )
-        return;
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      if (max < 2) return;
-      if (window.scrollY >= max - 2) {
-        if (!bottomSince) bottomSince = Date.now();
-        if (Date.now() - bottomSince > 7000) {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-          lastInteraction.current = Date.now();
-          bottomSince = 0;
-        }
-      } else {
-        bottomSince = 0;
-        window.scrollBy({ top: 1, behavior: "instant" });
-      }
-    }, 85);
-    return () => {
-      clearInterval(id);
-      ["pointerdown", "pointermove", "wheel", "keydown", "touchstart"].forEach(
-        (type) => window.removeEventListener(type, pause),
-      );
-    };
-  }, [tv, autoscroll, controls]);
   const unit = slug
     ? data?.units.find((u) => unitSlug(u.name) === slug && u.active)
     : data?.units.find((u) => u.id === "u1" && u.active) ||
@@ -320,11 +278,11 @@ export function DashboardPage() {
                 checked={autoscroll}
                 onChange={(e) => setAutoscroll(e.target.checked)}
               />
-              Rolagem automática no modo TV
+              Reprodução automática dos slides
             </label>
             <span>
-              Pausa por 15 segundos após interação. Respeita a preferência de
-              movimento reduzido.
+              Um cargo por slide · 10 segundos por página · pausa durante a
+              interação.
             </span>
           </div>
         </section>
@@ -427,15 +385,6 @@ export function DashboardPage() {
         ) : (
           result && (
             <>
-              <CommandSummary
-                total={result.total}
-                functions={result.functions}
-                clock={clock}
-              />
-              <div className="cc-section-intro">
-                <h2>Profissionais por função</h2>
-                <span>Somente escalas publicadas</span>
-              </div>
               {result.state === "missing" && (
                 <div className="pd-empty-banner">
                   <CalendarDays size={25} />
@@ -460,30 +409,14 @@ export function DashboardPage() {
                   )}
                 </div>
               )}
-              <div className="cc-role-stack">
-                {result.groups
-                  .sort((a, b) => {
-                    const order = [
-                      "médico",
-                      "enfermeiro",
-                      "técnico de enfermagem",
-                      "maqueiro",
-                    ];
-                    const rank = (name: string) => {
-                      const index = order.indexOf(name.toLowerCase());
-                      return index < 0 ? order.length : index;
-                    };
-                    return rank(a.role.name) - rank(b.role.name);
-                  })
-                  .map((group) => (
-                    <RoleSection
-                      key={group.role.id}
-                      name={group.role.name}
-                      professionals={group.professionals}
-                      state={group.state}
-                    />
-                  ))}
-              </div>
+              <RoleCarousel
+                key={`${unit.id}|${clock.referenceDate}|${clock.shift}`}
+                groups={result.groups}
+                tv={tv}
+                total={result.total}
+                auto={autoscroll}
+                suspended={controls}
+              />
             </>
           )
         )}
