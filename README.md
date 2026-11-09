@@ -99,3 +99,15 @@ O dashboard externo é independente das telas administrativas, que foram preserv
 A interface `DashboardRepository` permite substituir o carregamento local por uma API sem reescrever os cartões. Na integração futura, esse endpoint deve entregar somente publicações autorizadas para a unidade; Supabase/PostgreSQL/RLS e autenticação continuam fora do MVP. O painel de demonstração deve ser removido ou desabilitado na versão de produção.
 
 `npm test` executa 11 testes, incluindo viradas exatas, madrugada/ano/mês, cargos, unidades, indicadores, deduplicação, rascunhos, estados vazios e as regressões administrativas. A interface foi verificada com Chromium em desktop, tablet, celular e modo TV, incluindo tela cheia, relógio automático, retorno à aba e estados de falha.
+
+## Rio Saúde Command Center
+
+O redesign atual adota a paleta azul-marinho `#06192D`, azul institucional `#064E83` e ciano `#00C8F8`. O dashboard foi reestruturado em `CommandHeader`, `CommandSummary` e `RoleSection`, em `src/dashboard/CommandLayout.tsx`, com uma única folha de estilos `dashboard.css`. A área administrativa e a camada de dados permanecem intactas.
+
+As funções são seções de largura total, sempre empilhadas verticalmente: médicos, enfermeiros, técnicos de enfermagem, maqueiros e os demais cargos da fonte. Os nomes são listas ordenadas por ordem alfabética, com numeração apenas visual, nunca classificação. Não há cartões de funções lado a lado em nenhuma resolução. No modo TV, apenas nomes de uma mesma função podem ocupar duas colunas em telas grandes. O cabeçalho fica fixo e compacto durante a rolagem.
+
+O resumo apresenta total de escalados, funções ocupadas, plantão e data de referência. Controles de demonstração continuam recolhidos, enquanto modo TV e tela cheia estão disponíveis no cabeçalho. O relógio, as viradas de plantão, publicações, filtros por unidade e simulador continuam funcionando.
+
+Para inserir a logo oficial autorizada, adicione **um** arquivo `src/assets/logo-rio-saude.png`, `.svg` ou `.webp` e refaça o build. O componente inclui essa imagem automaticamente. Sem o arquivo, há somente um espaço reservado textual identificado; nenhum símbolo institucional é recriado ou substituído por ícone genérico.
+
+Validação visual realizada no Chromium em 390, 768, 1440, 1920 e 3840 pixels de largura, verificando ordem, empilhamento vertical, ausência de overflow, modo TV e tela cheia. Os 11 testes de domínio/dashboard continuam cobrindo plantões, datas, unidades, publicações e regressões administrativas.
