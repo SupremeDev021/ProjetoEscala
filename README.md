@@ -115,3 +115,7 @@ Cabeçalho, relógio de São Paulo e plantão se mantêm durante a troca de slid
 Não foi fornecido arquivo oficial de logo: há um espaço reservado textual identificado. Para ativar a imagem oficial, adicione **um** arquivo `src/assets/logo-rio-saude.png`, `.svg` ou `.webp` e refaça o build. O cabeçalho inclui essa imagem automaticamente; nenhum símbolo institucional é recriado.
 
 Validações: build para GitHub Pages, 11 testes de domínio/plantões e Chromium em celular, tablet, Full HD e 4K, cobrindo um cargo por slide, reprodução automática, pausa/retomada, setas, paginação de 30 nomes, unidade e plantão.
+
+### Refinamento visual da apresentação
+
+O acabamento atual preserva carrossel, tempos, paginação, dados, rotas e plantões. `refinement.css` aplica a faixa azul `#07538A → #087DC0`, o nome da unidade em peso 800 e nomes dos profissionais em peso 700 sobre linhas suaves `#F4F8FC`. Os ícones e contadores do cargo são apenas apresentação; nenhum estado, intervalo ou filtro foi alterado. O indicador de plantão foi reposicionado junto ao relógio. A imagem oficial continua usando o mesmo ponto de entrada documentado acima.

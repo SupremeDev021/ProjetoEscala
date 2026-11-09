@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Pause, Play, Users } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Pause,
+  Play,
+  Users,
+  Stethoscope,
+  HeartPulse,
+  Accessibility,
+  HandHeart,
+  UserRound,
+} from "lucide-react";
 import { roleLabel } from "./CommandLayout";
 import type { projectDashboard } from "./data";
 type Group = ReturnType<typeof projectDashboard>["groups"][number];
@@ -106,6 +117,18 @@ export function RoleCarousel({
     currentPage * capacity,
     (currentPage + 1) * capacity,
   );
+  const roleName = group.role.name.toLowerCase();
+  const RoleIcon = roleName.includes("médic")
+    ? Stethoscope
+    : roleName.includes("enferm")
+      ? HeartPulse
+      : roleName.includes("maqueir")
+        ? Accessibility
+        : roleName.includes("fisio")
+          ? HandHeart
+          : roleName.includes("administr")
+            ? Users
+            : UserRound;
   return (
     <section
       className="rs-carousel"
@@ -140,20 +163,19 @@ export function RoleCarousel({
         aria-label={`${roleLabel(group.role.name)}, slide ${index + 1} de ${ordered.length}`}
       >
         <header className="rs-slide-heading">
-          <div>
-            <span className="rs-eyebrow">EQUIPE DO PLANTÃO</span>
+          <div className="rs-role-title">
+            <span className="rs-role-icon">
+              <RoleIcon size={30} />
+            </span>
             <h2>{roleLabel(group.role.name)}</h2>
-            <p>
-              <Users size={15} />
-              <b>{group.professionals.length}</b>{" "}
-              {group.professionals.length === 1
-                ? "profissional escalado"
-                : "profissionais escalados"}
-            </p>
           </div>
-          <span className="rs-slide-number" aria-hidden="true">
-            {String(index + 1).padStart(2, "0")}
-            <small>/{String(ordered.length).padStart(2, "0")}</small>
+          <span className="rs-role-total">
+            <b>{String(group.professionals.length).padStart(2, "0")}</b>
+            <small>
+              {group.professionals.length === 1
+                ? "PROFISSIONAL"
+                : "PROFISSIONAIS"}
+            </small>
           </span>
         </header>
         {people.length ? (

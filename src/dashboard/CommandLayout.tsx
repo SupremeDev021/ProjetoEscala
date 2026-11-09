@@ -95,11 +95,6 @@ export function CommandHeader({
         <div>
           <span className="rs-eyebrow">UNIDADE</span>
           <h1>{unitName}</h1>
-          <div className="rs-shift" aria-live="polite">
-            <Icon size={16} />
-            <h2>Plantão {clock.shift === "day" ? "diurno" : "noturno"}</h2>
-            <span>{clock.shift === "day" ? "07h às 19h" : "19h às 07h"}</span>
-          </div>
         </div>
         <div className="rs-clock">
           <span className="rs-eyebrow">
@@ -124,6 +119,11 @@ export function CommandHeader({
               month: "long",
             })}
           </small>
+          <div className="rs-shift" aria-live="polite">
+            <Icon size={16} />
+            <h2>Plantão {clock.shift === "day" ? "diurno" : "noturno"}</h2>
+            <span>{clock.shift === "day" ? "07h às 19h" : "19h às 07h"}</span>
+          </div>
         </div>
       </div>
     </header>

@@ -1,0 +1,410 @@
+/* Ajustes exclusivamente visuais sobre a apresentação existente. */
+.modern-dashboard {
+  --ink: #073b65;
+  --blue: #07538a;
+  --muted: #5d798d;
+  background: #fff;
+}
+.rs-header {
+  border-bottom: 0;
+  position: relative;
+}
+.rs-header:after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 5vw;
+  right: 5vw;
+  height: 2px;
+  background: linear-gradient(90deg, #07538a, #087dc0 65%, #00bfea55);
+  border-radius: 2px;
+}
+.rs-topline {
+  border-color: #e1eaf2;
+}
+.rs-unit-line {
+  padding: 26px 0 27px;
+  align-items: center;
+  gap: 30px;
+}
+.rs-unit-line > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+.rs-unit-line h1,
+.tv-mode .rs-unit-line h1 {
+  font-size: clamp(32px, 3vw, 48px);
+  font-weight: 800;
+  color: #073b65;
+  letter-spacing: -1px;
+  line-height: 1.2;
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+}
+.rs-unit-line > .rs-clock {
+  flex-shrink: 0;
+  max-width: 43%;
+  gap: 5px;
+}
+.rs-clock time {
+  font-size: 39px;
+  color: #073b65;
+  font-weight: 550;
+}
+.rs-clock > span:last-of-type {
+  font-size: 11px;
+  color: #5f7b90;
+}
+.rs-clock .rs-shift {
+  background: #edf7fd;
+  border: 1px solid #d7eaf7;
+  border-radius: 6px;
+  padding: 8px 11px;
+  margin-top: 7px;
+  gap: 8px;
+}
+.rs-clock .rs-shift h2 {
+  font-size: 11px;
+  font-weight: 650;
+  color: #087dc0;
+  white-space: nowrap;
+}
+.rs-clock .rs-shift svg {
+  color: #087dc0;
+}
+.rs-clock .rs-shift > span {
+  color: #406b8a;
+  font-size: 10px;
+}
+.is-night .rs-clock .rs-shift {
+  background: #eef3f8;
+  border-color: #d9e4ee;
+}
+.is-night .rs-clock .rs-shift h2,
+.is-night .rs-clock .rs-shift svg {
+  color: #073b65;
+}
+.rs-carousel {
+  border: 1px solid #e1eaf2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 5px 22px #073b6506;
+}
+.rs-slide {
+  padding: 26px 28px 23px;
+  background: #fff;
+}
+.rs-slide-heading {
+  background: linear-gradient(110deg, #07538a, #087dc0);
+  border-radius: 9px;
+  padding: 25px 27px;
+  margin: 0 0 24px;
+  min-height: 108px;
+  box-shadow: 0 5px 14px #07538a16;
+  gap: 24px;
+}
+.rs-role-title {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+.rs-role-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #bcefff;
+  flex-shrink: 0;
+}
+.rs-slide-heading h2,
+.tv-mode .rs-slide-heading h2 {
+  font-size: clamp(26px, 2.6vw, 42px);
+  font-weight: 750;
+  color: #fff;
+  text-transform: uppercase;
+  line-height: 1.25;
+  letter-spacing: 0.4px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.rs-role-total {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 17px;
+  background: #ffffff16;
+  border: 1px solid #ffffff45;
+  border-radius: 7px;
+  color: #fff;
+  flex-shrink: 0;
+}
+.rs-role-total > b {
+  font-size: 31px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.rs-role-total > small {
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-weight: 600;
+  color: #ebf8ff;
+}
+.rs-people {
+  gap: 11px;
+}
+.rs-people.two-columns {
+  gap: 11px 20px;
+}
+.rs-people li {
+  background: #f4f8fc;
+  border: 1px solid #e1eaf2;
+  border-radius: 7px;
+  padding: 17px 20px;
+  gap: 18px;
+  min-height: 78px;
+}
+.rs-people li > div {
+  min-width: 0;
+  flex: 1;
+}
+.rs-people li > div > b,
+.tv-mode .rs-people li > div > b {
+  font-size: clamp(18px, 1.65vw, 25px);
+  font-weight: 700;
+  color: #102d47;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.rs-people li > span {
+  color: #6c8ea7;
+  font-size: 10px;
+  align-self: center;
+  font-weight: 500;
+  min-width: 22px;
+}
+.rs-people small {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #57758c;
+  margin-top: 3px;
+}
+.rs-navigation {
+  background: #fbfdff;
+  border-color: #e1eaf2;
+  padding: 16px 26px;
+}
+.rs-slide-controls {
+  gap: 10px;
+}
+.rs-slide-controls button {
+  background: #fff;
+  border-color: #d8e6f0;
+  color: #07538a;
+  box-shadow: 0 2px 5px #073b6504;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.rs-slide-controls button:hover {
+  background: #edf7fd;
+  border-color: #a8d4eb;
+}
+.rs-slide-position > b {
+  font-weight: 600;
+  color: #426b86;
+}
+.tv-mode .rs-slide {
+  padding: 24px 28px;
+}
+.tv-mode .rs-slide-heading {
+  padding: 24px 28px;
+  min-height: 112px;
+}
+.tv-mode .rs-role-total > b {
+  font-size: 35px;
+}
+.tv-mode .rs-people li {
+  min-height: 86px;
+  padding: 19px 22px;
+}
+.tv-mode .rs-people small {
+  font-size: 15px;
+}
+.tv-mode .rs-clock .rs-shift h2 {
+  font-size: 12px;
+}
+@media (min-width: 2800px) {
+  .tv-mode .rs-unit-line h1 {
+    font-size: 58px;
+  }
+  .tv-mode .rs-slide-heading h2 {
+    font-size: 60px;
+  }
+  .tv-mode .rs-people li > div > b {
+    font-size: 35px;
+  }
+  .tv-mode .rs-role-total > b {
+    font-size: 48px;
+  }
+  .tv-mode .rs-role-total > small {
+    font-size: 14px;
+  }
+  .tv-mode .rs-people small {
+    font-size: 23px;
+  }
+  .tv-mode .rs-slide-heading {
+    min-height: 145px;
+  }
+}
+@media (max-width: 1000px) {
+  .rs-unit-line h1,
+  .tv-mode .rs-unit-line h1 {
+    font-size: 34px;
+  }
+  .rs-role-total {
+    gap: 9px;
+    padding: 11px;
+  }
+  .rs-role-total > small {
+    font-size: 8px;
+    letter-spacing: 0.6px;
+  }
+  .rs-slide-heading {
+    padding: 23px;
+    gap: 17px;
+  }
+  .rs-role-icon svg {
+    width: 25px;
+  }
+  .rs-role-title {
+    gap: 13px;
+  }
+  .rs-slide-heading h2 {
+    font-size: 28px;
+  }
+}
+@media (max-width: 650px) {
+  .rs-unit-line {
+    padding: 21px 0;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .rs-unit-line h1,
+  .tv-mode .rs-unit-line h1 {
+    font-size: 27px;
+    font-weight: 800;
+    letter-spacing: -0.7px;
+    max-width: none;
+    line-height: 1.22;
+  }
+  .rs-unit-line > .rs-clock {
+    max-width: 45%;
+    max-width: 145px;
+    gap: 4px;
+  }
+  .rs-clock time {
+    font-size: 25px;
+  }
+  .rs-clock > span:last-of-type {
+    font-size: 8px;
+    line-height: 1.7;
+  }
+  .rs-clock .rs-shift {
+    padding: 6px 7px;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 145px;
+  }
+  .rs-clock .rs-shift h2,
+  .tv-mode .rs-clock .rs-shift h2 {
+    font-size: 8px;
+  }
+  .rs-clock .rs-shift > span {
+    font-size: 8px;
+    border: 0;
+    padding: 0;
+  }
+  .rs-clock .rs-shift svg {
+    width: 11px;
+    height: 11px;
+  }
+  .rs-clock > small {
+    font-size: 7px;
+    line-height: 1.7;
+  }
+  .rs-slide,
+  .tv-mode .rs-slide {
+    padding: 16px 15px 18px;
+  }
+  .rs-slide-heading,
+  .tv-mode .rs-slide-heading {
+    padding: 18px 14px;
+    gap: 10px;
+    min-height: 97px;
+    margin-bottom: 18px;
+    align-items: center;
+  }
+  .rs-role-title {
+    gap: 9px;
+  }
+  .rs-role-icon svg {
+    width: 21px;
+    height: 21px;
+  }
+  .rs-slide-heading h2,
+  .tv-mode .rs-slide-heading h2 {
+    font-size: 19px;
+    letter-spacing: 0;
+    line-height: 1.4;
+  }
+  .rs-role-total {
+    flex-direction: column;
+    gap: 5px;
+    padding: 9px 7px;
+    border-radius: 5px;
+  }
+  .rs-role-total > b,
+  .tv-mode .rs-role-total > b {
+    font-size: 23px;
+  }
+  .rs-role-total > small {
+    font-size: 5px;
+    letter-spacing: 0.2px;
+  }
+  .rs-people,
+  .rs-people.two-columns {
+    gap: 10px;
+  }
+  .rs-people li,
+  .tv-mode .rs-people li {
+    padding: 16px 13px;
+    gap: 11px;
+    min-height: 76px;
+  }
+  .rs-people li > div > b {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.6;
+  }
+  .tv-mode .rs-people li > div > b {
+    font-size: 18px;
+  }
+  .rs-people small {
+    font-size: 10px;
+  }
+  .tv-mode .rs-people small {
+    font-size: 11px;
+  }
+  .rs-people li > span {
+    font-size: 8px;
+    min-width: 16px;
+  }
+  .rs-navigation {
+    padding: 14px 17px;
+  }
+  .rs-slide-controls {
+    gap: 7px;
+  }
+}

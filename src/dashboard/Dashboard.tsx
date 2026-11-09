@@ -27,6 +27,7 @@ import {
 } from "./data";
 import { STORAGE_KEY } from "../domain";
 import "./dashboard.css";
+import "./refinement.css";
 import { CommandHeader } from "./CommandLayout";
 import { RoleCarousel } from "./RoleCarousel";
 const fmtUpdated = (date: string) =>
