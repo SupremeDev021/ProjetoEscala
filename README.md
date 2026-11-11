@@ -125,3 +125,7 @@ O acabamento atual preserva carrossel, tempos, paginação, dados, rotas e plant
 O dashboard público agora inicia com modo TV ativado e horário real de São Paulo. A interface de demonstração, simulador e os textos de aviso solicitados foram retirados da tela pública. O carrossel continua automático, com setas e pausa. O plantão e os horários ficaram maiores. Os dados continuam exclusivamente locais/publicados; sem publicação na data e no turno atuais, o painel apresenta o estado vazio. Os rótulos e as funcionalidades da área administrativa foram preservados.
 
 O navegador exige uma interação para entrar em tela cheia nativa; o botão continua disponível. O layout TV e a reprodução dos slides já estão ativos na abertura, sem depender desse botão. A logo deve ser incluída como arquivo em `src/assets/logo-rio-saude.png`, `.svg` ou `.webp`; o cabeçalho passa a carregá-la automaticamente no próximo build.
+
+### Controles de TV e confirmação de ponto
+
+As instruções atualizadas para quiosque Windows, arquivo da logo e simulação de ponto estão em [docs/tv-e-ponto.md](docs/tv-e-ponto.md). A simulação de ponto é habilitada explicitamente no painel exclusivo de desenvolvimento fora do Modo TV; não aparece na produção. O serviço separado valida unidade, identificador, plantão e janela de horário. `npm test` inclui as regressões de ponto facial. `vercel.json` permite abrir rotas diretamente na publicação Vercel.

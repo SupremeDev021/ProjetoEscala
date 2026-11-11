@@ -1,7 +1,7 @@
 import { Sun, Moon, Monitor, Maximize, Minimize } from "lucide-react";
 import { saoPauloClock, ZONE } from "./data";
 type Clock = ReturnType<typeof saoPauloClock>;
-const logos = import.meta.glob("../assets/logo-rio-saude.{png,svg,webp}", {
+const logos = import.meta.glob("../assets/logo-rio-saude.{png,svg,webp,jpg,jpeg}", {
   eager: true,
   query: "?url",
   import: "default",
@@ -41,8 +41,8 @@ export function CommandHeader({
           {logo ? (
             <img src={logo} alt="Prefeitura do Rio / Rio Saúde" />
           ) : (
-            <div className="rs-logo-slot">
-              <b>Rio Saúde</b>
+            <div className="rs-logo-slot" aria-label="Espaço reservado para a logo oficial">
+              <b>Logo institucional</b>
             </div>
           )}
           <span />
@@ -61,7 +61,7 @@ export function CommandHeader({
           </button>
           <button
             className="pd-button"
-            aria-label={fullscreen ? "Sair da tela cheia" : "Tela cheia"}
+            aria-label={fullscreen ? "Sair da tela cheia" : "Entrar em tela cheia"}
             onClick={onFullscreen}
           >
             {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}

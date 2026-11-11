@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Building2, RefreshCw, WifiOff } from "lucide-react";
 import type { Data } from "../models";
@@ -12,6 +12,7 @@ import {
 import { STORAGE_KEY } from "../domain";
 import { CommandHeader } from "./CommandLayout";
 import { RoleCarousel } from "./RoleCarousel";
+import { confirmedProfessionals, simulatedPontoFacialService, shiftId, type ShiftContext } from '../services/pontoFacialService';
 import "./dashboard.css";
 import "./refinement.css";
 export function DashboardPage() {
@@ -25,6 +26,33 @@ export function DashboardPage() {
   const [message, setMessage] = useState("");
   const [now, setNow] = useState(() => new Date());
   const request = useRef(0);
+  const ownsFullscreen = useRef(false);
+  const [controls, setControls] = useState(true);
+  const controlsTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [punchState, setPunchState] = useState<{ key: string; ids: Set<string> }>({ key: '', ids: new Set() });
+  const [simulate, setSimulate] = useState(false);
+  useEffect(() => {
+    const show = () => {
+      setControls(true);
+      clearTimeout(controlsTimer.current);
+      controlsTimer.current = setTimeout(() => setControls(false), 5000);
+    };
+    show();
+    window.addEventListener('pointermove', show);
+    window.addEventListener('pointerdown', show);
+    window.addEventListener('keydown', show);
+    return () => {
+      clearTimeout(controlsTimer.current);
+      window.removeEventListener('pointermove', show);
+      window.removeEventListener('pointerdown', show);
+      window.removeEventListener('keydown', show);
+    };
+  }, []);
+  useEffect(() => {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      void document.documentElement.requestFullscreen().then(() => { ownsFullscreen.current = true; }).catch(() => {});
+    }
+  }, []);
   const clock = saoPauloClock(now);
   const refresh = useCallback(async () => {
     const id = ++request.current;
@@ -71,7 +99,10 @@ export function DashboardPage() {
     };
   }, [refresh]);
   useEffect(() => {
-    const sync = () => setFullscreen(Boolean(document.fullscreenElement));
+    const sync = () => {
+      setFullscreen(Boolean(document.fullscreenElement));
+      if (!document.fullscreenElement) ownsFullscreen.current = false;
+    };
     document.addEventListener("fullscreenchange", sync);
     return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
@@ -88,11 +119,29 @@ export function DashboardPage() {
     data && unit
       ? projectDashboard(data, unit.id, clock.referenceDate, clock.shift)
       : null;
+  const peopleKey = result?.groups.flatMap(g => g.professionals.map(p => p.id)).sort().join('|') || '';
+  const context = useMemo<ShiftContext>(() => ({ unitId: unit?.id || '', referenceDate: clock.referenceDate,
+    shift: clock.shift, professionalIds: peopleKey ? peopleKey.split('|') : [] }), [unit?.id, clock.referenceDate, clock.shift, peopleKey]);
+  const contextKey = shiftId(context);
+  useEffect(() => {
+    let active = true;
+    const poll = async () => {
+      try {
+        const records = simulate ? await simulatedPontoFacialService.load(context) : [];
+        if (active) setPunchState({ key: shiftId(context), ids: confirmedProfessionals(records, context, Date.now()) });
+      } catch {
+        if (active) setPunchState({ key: shiftId(context), ids: new Set() });
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 30000);
+    return () => { active = false; clearInterval(timer); };
+  }, [context, simulate]);
   async function toggleFullscreen() {
     try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else if (document.documentElement.requestFullscreen)
-        await document.documentElement.requestFullscreen();
+      if (document.fullscreenElement && ownsFullscreen.current) { await document.exitFullscreen(); ownsFullscreen.current = false; }
+      else if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen(); ownsFullscreen.current = true; }
       else setMessage("Use a opção de tela cheia do seu navegador.");
     } catch {
       setMessage("O navegador exige que a tela cheia seja ativada pelo botão.");
@@ -100,7 +149,7 @@ export function DashboardPage() {
   }
   return (
     <div
-      className={`modern-dashboard ${tv ? "tv-mode" : ""} ${clock.shift === "day" ? "is-day" : "is-night"}`}
+      className={`modern-dashboard ${tv ? "tv-mode" : ""} ${controls ? "controls-visible" : "controls-hidden"} ${clock.shift === "day" ? "is-day" : "is-night"}`}
     >
       <CommandHeader
         unitName={
@@ -115,6 +164,14 @@ export function DashboardPage() {
         onFullscreen={toggleFullscreen}
       />
       <main className="pd-main">
+        {import.meta.env.DEV && !tv && <details className="ponto-dev">
+          <summary>Testes de ponto — dados fictícios</summary>
+          <label><input type="checkbox" checked={simulate} onChange={e => setSimulate(e.target.checked)} /> Ativar simulação (consulta a cada 30 segundos)</label>
+          <p>Primeiro profissional confirmado; segundo registra após 30 segundos. Os demais mantêm o visual original.</p>
+          {result?.groups.flatMap(g => g.professionals).map(p => <button key={p.id} disabled={!simulate} onClick={() => simulatedPontoFacialService.register(context, p.id)}>Simular entrada de {p.fullName}</button>)}
+          <p>O LED aparece na próxima consulta, sem recarregar.</p>
+        </details>}
+
         {(offline || error) && (
           <div className="pd-alert" role="status">
             <WifiOff size={18} />
@@ -154,6 +211,7 @@ export function DashboardPage() {
                 auto
                 suspended={false}
                 tv={tv}
+                confirmed={punchState.key === contextKey ? punchState.ids : new Set()}
               />
             </>
           )

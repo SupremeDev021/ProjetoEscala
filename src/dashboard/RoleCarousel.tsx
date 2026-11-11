@@ -20,12 +20,14 @@ export function RoleCarousel({
   auto,
   suspended,
   tv,
+  confirmed,
 }: {
   groups: Group[];
   total: number;
   auto: boolean;
   suspended: boolean;
   tv: boolean;
+  confirmed: Set<string>;
 }) {
   const rank = (name: string) => {
     const n = name.toLowerCase();
@@ -77,7 +79,7 @@ export function RoleCarousel({
     Math.ceil((group?.professionals.length || 0) / capacity),
   );
   const currentPage = Math.min(page, pageCount - 1);
-  const running = auto && playing && !suspended && !hover;
+  const running = auto && playing && !suspended && (tv || !hover);
   useEffect(() => {
     if (!running || !ordered.length) return;
     const timer = setInterval(() => {
@@ -187,7 +189,7 @@ export function RoleCarousel({
             start={currentPage * capacity + 1}
           >
             {people.map((p, i) => (
-              <li key={p.id}>
+              <li key={p.id} className={confirmed.has(p.id) ? "profissional-com-ponto" : undefined}>
                 <span aria-hidden="true">
                   {String(currentPage * capacity + i + 1).padStart(2, "0")}
                 </span>
