@@ -1,3 +1,6 @@
+import { newConfig } from "../integration/configuration";
+import { normalizeRecords } from "../integration/queryService";
+import { scheduleWindow } from "../services/workRegimes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Building2, RefreshCw, WifiOff } from "lucide-react";
@@ -140,26 +143,45 @@ export function DashboardPage() {
       data?.units.find((u) => u.active);
   const result =
     data && unit
-      ? projectDashboard(data, unit.id, clock.referenceDate, clock.shift)
+      ? projectDashboard(data, unit.id, clock.referenceDate, clock.shift, now.getTime())
       : null;
   const peopleKey = result?.groups.flatMap(g => g.professionals.map(p => p.id)).sort().join('|') || '';
-  const context = useMemo<ShiftContext>(() => ({ unitId: unit?.id || '', referenceDate: clock.referenceDate,
-    shift: clock.shift, professionalIds: peopleKey ? peopleKey.split('|') : [] }), [unit?.id, clock.referenceDate, clock.shift, peopleKey]);
+  const context = useMemo<ShiftContext>(() => {
+    const c: ShiftContext = { unitId: unit?.id || '', referenceDate: clock.referenceDate,
+      shift: clock.shift, professionalIds: peopleKey ? peopleKey.split('|') : [], windows: {} };
+    for (const record of data?.published || []) {
+      if (record.unitId !== c.unitId || record.date !== c.referenceDate || record.shift !== c.shift || !record.workRegime) continue;
+      const window = scheduleWindow(record);
+      for (const id of record.professionalIds) if (c.professionalIds.includes(id)) {
+        // Duplicate entries for one person prefer the longest active scheduled coverage.
+        const old = c.windows![id];
+        const candidate = { ...window, shiftIds: record.workRegime === '24h' ? [`${c.unitId}|${c.referenceDate}|day`, `${c.unitId}|${c.referenceDate}|night`] : [shiftId(c)] };
+        if (!old || candidate.end - candidate.start > old.end - old.start) c.windows![id] = candidate;
+      }
+    }
+    return c;
+  }, [unit?.id, clock.referenceDate, clock.shift, peopleKey, data]);
+  const integration = data?.integrationConfigs?.find(c => c.unitId === unit?.id);
   const contextKey = shiftId(context);
   useEffect(() => {
     let active = true;
     const poll = async () => {
       try {
-        const records = simulate ? await simulatedPontoFacialService.load(context) : [];
-        if (active) setPunchState({ key: shiftId(context), ids: confirmedProfessionals(records, context, Date.now()) });
+        // Real adapter remains unavailable. DEV simulation passes an explicit synthetic ID map.
+        const raw = import.meta.env.DEV && simulate ? await simulatedPontoFacialService.load(context) : [];
+        const demoConfig = { ...newConfig(context.unitId), externalUnitId: `demo-unit-${context.unitId}`, equipmentIds: ['simulated'] };
+        const demoMappings = context.professionalIds.map(id => ({ unitId: context.unitId, professionalId: id, externalProfessionalId: `demo-${id}` }));
+        const records = normalizeRecords(raw.map(r => ({ externalProfessionalId: `demo-${r.professionalId}`, externalUnitId: demoConfig.externalUnitId,
+          equipmentId: 'simulated', occurredAt: r.timestamp, kind: r.type, validation: r.validation, received: r.received, shiftId: r.shiftId })), demoConfig, demoMappings, context);
+        if (active) setPunchState({ key: shiftId(context), ids: confirmedProfessionals(records, context, Date.now(), integration?.rules[context.shift]) });
       } catch {
         if (active) setPunchState({ key: shiftId(context), ids: new Set() });
       }
     };
     void poll();
-    const timer = setInterval(() => void poll(), 30000);
+    const timer = setInterval(() => void poll(), (integration?.pollSeconds || 30) * 1000);
     return () => { active = false; clearInterval(timer); };
-  }, [context, simulate]);
+  }, [context, simulate, integration]);
   async function toggleFullscreen() {
     try {
       if (document.fullscreenElement && ownsFullscreen.current) { await document.exitFullscreen(); ownsFullscreen.current = false; }
@@ -189,10 +211,10 @@ export function DashboardPage() {
       <main className="pd-main">
         {import.meta.env.DEV && !tv && <details className="ponto-dev">
           <summary>Testes de ponto — dados fictícios</summary>
-          <label><input type="checkbox" checked={simulate} onChange={e => setSimulate(e.target.checked)} /> Ativar simulação (consulta a cada 30 segundos)</label>
+          <label><input type="checkbox" checked={simulate} onChange={e => setSimulate(e.target.checked)} /> Ativar simulação (IDs fictícios explicitamente relacionados)</label>
           <p>Primeiro profissional confirmado; segundo registra após 30 segundos. Os demais mantêm o visual original.</p>
           {result?.groups.flatMap(g => g.professionals).map(p => <button key={p.id} disabled={!simulate} onClick={() => simulatedPontoFacialService.register(context, p.id)}>Simular entrada de {p.fullName}</button>)}
-          <p>O LED aparece na próxima consulta, sem recarregar.</p>
+          <p>O LED aparece na próxima consulta, sem recarregar. Simulação somente; não representa sincronização Biofinger.</p>
         </details>}
 
         {(offline || error) && (

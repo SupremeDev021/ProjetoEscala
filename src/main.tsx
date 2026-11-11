@@ -1,3 +1,7 @@
+import { IntegrationPage } from "./components/IntegrationPage";
+import { ImportProfessionals } from "./components/ImportProfessionals";
+import { ensureRoleCatalog, normalizedName } from "./imports/cbo";
+import { regimeLabel } from "./services/workRegimes";
 import React, {
   useState,
   useEffect,
@@ -89,9 +93,9 @@ const shiftLabel = (s: Shift) =>
 function load(): Data {
   try {
     const x = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (x?.published && x?.links && x?.users) return x;
+    if (x?.published && x?.links && x?.users) return ensureRoleCatalog(x);
   } catch {}
-  return seed();
+  return ensureRoleCatalog(seed());
 }
 type Ctx = {
   d: Data;
@@ -208,6 +212,7 @@ function App() {
           />
           <Route path="/equipes" element={<Teams key={s.activeUnitId} />} />
           <Route path="/historico" element={<HistoryPage />} />
+          <Route path="/integracao-ponto-facial" element={<IntegrationRoute key={s.activeUnitId + s.userId} />} />
           <Route path="/administracao" element={<Administration />} />
         </Route>
         <Route
@@ -433,6 +438,7 @@ const navItems = [
   ["/cadastros", "Profissionais", Users],
   ["/equipes", "Equipes padrão", LayoutGrid],
   ["/historico", "Histórico", History],
+  ["/integracao-ponto-facial", "Integração Ponto Facial", ShieldCheck],
   ["/administracao", "Administração geral", Building2],
 ] as const;
 function Layout() {
@@ -646,7 +652,7 @@ function SchedulePage() {
   const { d, s, unit, change, toast } = useApp();
   const location = useLocation();
   const roles = d.roles.filter(r => r.active);
-  const fresh = (): Assembly => ({ unitId: s.activeUnitId, date: todaySaoPaulo(), shift: "day",
+  const fresh = (): Assembly => ({ unitId: s.activeUnitId, date: todaySaoPaulo(), shift: "day", workRegime: "12x36", startTime: "08:00",
     teamId: d.teams.find(t => t.unitId === s.activeUnitId && t.active)?.id || "", selections: {}, confirmed: {} });
   const [draft, setDraft] = useState<Assembly>(fresh);
   const [index, setIndex] = useState(0);
@@ -679,7 +685,7 @@ function SchedulePage() {
     return () => { clearInterval(timer); window.removeEventListener("focus", check); document.removeEventListener("visibilitychange", check); window.removeEventListener("beforeunload", unload); };
   }, [draft.date, dirty]);
   const guard = (fn: () => void) => dirty ? setPending(() => fn) : fn();
-  const parameter = (value: Partial<Assembly>) => guard(() => { setDraft({ ...fresh(), shift: draft.shift, teamId: draft.teamId, ...value }); setIndex(0); setSearch(""); setCopyNotice(""); });
+  const parameter = (value: Partial<Assembly>) => guard(() => { setDraft({ ...fresh(), shift: draft.shift, teamId: draft.teamId, workRegime: draft.workRegime, startTime: draft.startTime, ...value }); setIndex(0); setSearch(""); setCopyNotice(""); });
   const role = roles[index];
   const ids = draft.selections[role?.id] || [];
   const all = role ? available(d, s.activeUnitId, role.id) : [];
@@ -702,9 +708,12 @@ function SchedulePage() {
       <div className="filters">
         <Field label="Unidade"><div className="readonly">{unit.name}</div></Field>
         <Field label="Data do plantão · São Paulo"><div className="readonly">{dateLabel(draft.date)}</div></Field>
-        <Field label="Turno"><select aria-label="Turno" value={draft.shift} onChange={e => parameter({ shift: e.target.value as Shift })}><option value="day">Diurno · 07h–19h</option><option value="night">Noturno · 19h–07h</option></select></Field>
+        <Field label="Jornada"><select aria-label="Jornada" value={draft.workRegime || "12x36"} onChange={e => parameter({ workRegime: e.target.value as Assembly["workRegime"], shift: e.target.value === "12x36" ? draft.shift : "day" })}><option value="12x36">12×36</option><option value="24h">24 horas · dia e noite</option><option value="diarist">Diarista · 8 horas</option></select></Field>
+        {draft.workRegime === "diarist" && <Field label="Início da jornada de 8 horas"><input aria-label="Início diarista" type="time" min="07:00" max="11:00" value={draft.startTime || "08:00"} onChange={e => parameter({ startTime: e.target.value })} /></Field>}
+        <Field label="Turno"><select aria-label="Turno" disabled={draft.workRegime === "24h" || draft.workRegime === "diarist"} value={draft.shift} onChange={e => parameter({ shift: e.target.value as Shift })}><option value="day">Diurno · 07h–19h</option><option value="night">Noturno · 19h–07h</option></select></Field>
         <Field label="Equipe"><select aria-label="Equipe" value={draft.teamId} onChange={e => parameter({ teamId: e.target.value })}><option value="" disabled>Selecione uma equipe</option>{d.teams.filter(t => t.unitId === s.activeUnitId && t.active).map(t => <option key={t.id} value={t.id}>Equipe {t.name}</option>)}</select></Field>
       </div>
+      <p className="listnote">{regimeLabel(draft.workRegime)}{draft.workRegime === "diarist" ? ` · início ${draft.startTime}, duração 8h` : draft.workRegime === "24h" ? " · 07h até 07h do dia seguinte; publica os dois turnos juntos" : " · seleciona o plantão de 12h; não gera recorrência automática"}</p>
       <div className="rolearea"><div className="rolegrid">{roles.map((r, i) => <button key={r.id} disabled={i !== index && !draft.confirmed[r.id] && i > index} aria-current={i === index ? "step" : undefined} className={"rolecard " + (i === index ? "selected " : "") + (draft.confirmed[r.id] ? "confirmed" : "")} onClick={() => move(i)}>
         <b>{r.name}</b><span>{i === index ? "Cargo atual · " : ""}{draft.confirmed[r.id] ? (draft.selections[r.id]?.length ? `${draft.selections[r.id].length} profissionais · Confirmado` : "Nenhum profissional · Confirmado") : "Pendente"}</span>{draft.confirmed[r.id] && <Check size={20} />}
       </button>)}</div></div>
@@ -718,7 +727,7 @@ function SchedulePage() {
       </div>
       <div className="searchbox"><Search size={17} /><input aria-label="Pesquisar profissional" value={search} placeholder="Pesquisar profissional pelo nome..." onChange={e => setSearch(e.target.value)} /></div>
       <div className="selectiontools"><button onClick={() => update([...new Set([...ids, ...visible.map(p => p.id)])])}>Selecionar todos visíveis</button><button onClick={() => update([])}>Limpar seleção</button></div>
-      <div className="peoplelist">{visible.map(p => <label key={p.id} className={"person " + (ids.includes(p.id) ? "checked" : "")}><input type="checkbox" checked={ids.includes(p.id)} onChange={() => update(ids.includes(p.id) ? ids.filter(id => id !== p.id) : [...ids, p.id])} /><span><b>{p.fullName}</b><small>{p.specialty}</small></span></label>)}{!visible.length && <Empty text="Nenhum profissional encontrado para este cargo ou pesquisa." />}</div>
+      <div className="peoplelist">{visible.map(p => <label key={p.id} className={"person " + (ids.includes(p.id) ? "checked" : "")}><input type="checkbox" checked={ids.includes(p.id)} onChange={() => update(ids.includes(p.id) ? ids.filter(id => id !== p.id) : [...ids, p.id])} /><span><b>{p.fullName}</b></span></label>)}{!visible.length && <Empty text="Nenhum profissional encontrado para este cargo ou pesquisa." />}</div>
       <p className="listnote">A confirmação mantém a seleção nesta montagem. O dashboard só muda após a publicação final.</p>
     </section> : <Empty text="Cadastre ao menos um cargo ativo para montar a escala." />}
     <div className="savebar"><div>{roles.filter(r => draft.confirmed[r.id]).length} de {roles.length} cargos confirmados</div><div>
@@ -733,7 +742,7 @@ function SchedulePage() {
       if (todaySaoPaulo() !== draft.date) { reset(); toast("O dia mudou. Revise a nova montagem."); return; }
       if (change(x => publishAssembly(x, s, draft), "Escala completa publicada. O dashboard recebeu a nova composição.")) reset();
       else setPublish(false);
-    }}><p>{unit.name} · {dateLabel(draft.date)} · {shiftLabel(draft.shift)} · Equipe {d.teams.find(t => t.id === draft.teamId)?.name}</p><ul>{roles.map(r => <li key={r.id}>{r.name}: {draft.selections[r.id]?.length || 0} profissionais</li>)}</ul></Confirm>}
+    }}><p>{unit.name} · {dateLabel(draft.date)} · {draft.workRegime === "24h" ? "Diurno e noturno" : shiftLabel(draft.shift)} · {regimeLabel(draft.workRegime)}{draft.workRegime === "diarist" ? ` · ${draft.startTime}, 8h` : ""} · Equipe {d.teams.find(t => t.id === draft.teamId)?.name}</p><ul>{roles.map(r => <li key={r.id}>{r.name}: {draft.selections[r.id]?.length || 0} profissionais</li>)}</ul></Confirm>}
   </div>;
 }
 function Stat({
@@ -766,6 +775,10 @@ function Empty({ text }: { text: string }) {
     </div>
   );
 }
+function IntegrationRoute() {
+  const { d, s, change } = useApp();
+  return <IntegrationPage d={d} s={s} change={change} />;
+}
 function Professionals() {
   const { d, s, unit, change } = useApp();
   const [search, setSearch] = useState("");
@@ -792,7 +805,6 @@ function Professionals() {
             id: crypto.randomUUID(),
             fullName: "",
             roleId: "r0",
-            specialty: "",
             active: true,
           },
     );
@@ -876,7 +888,6 @@ function Professionals() {
               <tr>
                 <th>Nome</th>
                 <th>Cargo</th>
-                <th>Especialidade</th>
                 <th>Equipe padrão</th>
                 <th>Unidade</th>
                 <th>Status</th>
@@ -890,7 +901,6 @@ function Professionals() {
                     <b>{p.fullName}</b>
                   </td>
                   <td>{d.roles.find((r) => r.id === p.roleId)?.name}</td>
-                  <td>{p.specialty || "—"}</td>
                   <td>
                     {d.members
                       .filter(
@@ -945,6 +955,7 @@ function Professionals() {
           {!list.length && <Empty text="Nenhum profissional encontrado." />}
         </div>
       </section>
+      {normalizedName(unit.name) === "cer barra" && <ImportProfessionals d={d} s={s} change={change} />}
       {edit && (
         <Modal
           title={
@@ -987,14 +998,6 @@ function Professionals() {
                     </option>
                   ))}
                 </select>
-              </Field>
-              <Field label="Especialidade (opcional)">
-                <input
-                  value={edit.specialty || ""}
-                  onChange={(e) =>
-                    setEdit({ ...edit, specialty: e.target.value })
-                  }
-                />
               </Field>
               <Field label="Equipe padrão (opcional)">
                 <select value={team} onChange={(e) => setTeam(e.target.value)}>
@@ -1274,7 +1277,7 @@ function HistoryPage() {
   const nav = useNavigate();
   const [copy, setCopy] = useState<Schedule[] | null>(null);
   const publications = Object.values(d.published.filter(x => user.role === "global_admin" ? (!unit || x.unitId === unit) : x.unitId === s.activeUnitId).reduce<Record<string, Schedule[]>>((groups, x) => {
-    const k = [x.unitId, x.date, x.shift, x.teamId].join("|");
+    const k = x.workRegime === "24h" && x.publicationId ? x.publicationId : [x.unitId, x.date, x.shift, x.teamId].join("|");
     (groups[k] ||= []).push(x); return groups;
   }, {}));
   const [detail, setDetail] = useState<Data["events"][number] | null>(null);
@@ -1311,7 +1314,7 @@ function HistoryPage() {
       <section className="panel">
         <div className="sectionheading"><h2>Publicações · Copiar escala</h2></div>
         {publications.map(records => { const p = records[0]; return <div className="publicationrow" key={[p.unitId, p.date, p.shift, p.teamId].join("|")}>
-          <span><b>{d.units.find(u => u.id === p.unitId)?.name}</b><br />{dateLabel(p.date)} · {shiftLabel(p.shift)} · Equipe {d.teams.find(t => t.id === p.teamId)?.name} · {records.length} cargos</span>
+          <span><b>{d.units.find(u => u.id === p.unitId)?.name}</b><br />{dateLabel(p.date)} · {p.workRegime === "24h" ? "Diurno e noturno" : shiftLabel(p.shift)} · {regimeLabel(p.workRegime)} · Equipe {d.teams.find(t => t.id === p.teamId)?.name} · {new Set(records.map(r => r.roleId)).size} cargos</span>
           <button className="btn" onClick={() => {
             if (p.unitId !== s.activeUnitId) { setCopy(records); return; }
             try { copyPublication(d, s, records); nav("/escala", { state: { publication: records } }); } catch (e) { toast((e as Error).message); }
@@ -1408,7 +1411,7 @@ function Snapshot({ value }: { value: unknown }) {
   return (
     <div className="snapshot">
       {Object.entries(v)
-        .filter(([k]) => !["id", "updatedAt"].includes(k))
+        .filter(([k]) => !["id", "updatedAt", "specialty"].includes(k))
         .map(([k, x]) => (
           <div key={k}>
             <b>
@@ -1423,7 +1426,6 @@ function Snapshot({ value }: { value: unknown }) {
                 version: "Versão",
                 fullName: "Nome",
                 active: "Ativo",
-                specialty: "Especialidade",
                 team: "Equipe",
                 members: "Composição",
                 email: "E-mail",

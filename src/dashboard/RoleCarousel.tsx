@@ -195,13 +195,7 @@ export function RoleCarousel({
                 </span>
                 <div>
                   <b>{p.fullName}</b>
-                  {(p.specialty ||
-                    (p as typeof p & { sector?: string }).sector) && (
-                    <small>
-                      {p.specialty ||
-                        (p as typeof p & { sector?: string }).sector}
-                    </small>
-                  )}
+
                 </div>
               </li>
             ))}

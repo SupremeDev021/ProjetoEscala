@@ -1,3 +1,5 @@
+import { scheduleWindow } from "../services/workRegimes";
+import { ensureRoleCatalog } from "../imports/cbo";
 import type { Data, Shift } from "../models";
 import { seed } from "../seed";
 import { STORAGE_KEY } from "../domain";
@@ -38,13 +40,15 @@ export function projectDashboard(
   unitId: string,
   date: string,
   shift: Shift,
+  now?: number,
 ) {
   const rows = data.published.filter(
     (s) =>
       s.status === "published" &&
       s.unitId === unitId &&
       s.date === date &&
-      s.shift === shift,
+      s.shift === shift &&
+      (s.workRegime !== "diarist" || now === undefined || (now >= scheduleWindow(s).start && now < scheduleWindow(s).end)),
   );
   const groups = data.roles
     .filter((r) => r.active || rows.some((s) => s.roleId === r.id))
@@ -101,7 +105,7 @@ export const dashboardRepository: DashboardRepository = {
   async load(source, revision = 0) {
     if (source === "local") {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return seed();
+      if (!raw) return ensureRoleCatalog(seed());
       const data = JSON.parse(raw) as Data;
       if (
         !Array.isArray(data.published) ||
@@ -111,7 +115,7 @@ export const dashboardRepository: DashboardRepository = {
         !Array.isArray(data.units)
       )
         throw Error("Dados locais indisponíveis.");
-      return data;
+      return ensureRoleCatalog(data);
     }
     const data = seed();
     data.published = ["2026-11-10", "2026-11-11"].flatMap((date) =>

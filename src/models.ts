@@ -1,3 +1,6 @@
+import type { IntegrationConfig } from "./integration/configuration";
+import type { ProfessionalMapping } from "./integration/mappings";
+export type WorkRegime = "12x36" | "24h" | "diarist";
 export type Shift = "day" | "night";
 export interface Unit {
   id: string;
@@ -49,6 +52,9 @@ export interface Schedule {
   teamId: string;
   roleId: string;
   professionalIds: string[];
+  workRegime?: WorkRegime;
+  startTime?: string;
+  publicationId?: string;
   status: "draft" | "published";
   version: number;
   updatedAt: string;
@@ -75,6 +81,9 @@ export interface Data {
   schedules: Schedule[];
   published: Schedule[];
   events: AuditEvent[];
+  integrationConfigs?: IntegrationConfig[];
+  professionalMappings?: ProfessionalMapping[];
+  importedRows?: string[];
 }
 export interface Session {
   userId: string;

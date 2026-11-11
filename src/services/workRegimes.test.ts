@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { seed } from '../seed';
+import { copyPublication, publishAssembly, todaySaoPaulo, type Assembly } from '../domain';
+import { scheduleWindow, validateRegime } from './workRegimes';
+import { projectDashboard } from '../dashboard/data';
+import { confirmedProfessionals } from './pontoFacialService';
+const s = { userId: 'gestor', activeUnitId: 'u1' };
+const input = (): Assembly => ({ unitId: 'u1', date: todaySaoPaulo(), shift: 'day', teamId: 'u1A', workRegime: '24h', selections: { r0: ['u1p0'] }, confirmed: Object.fromEntries(seed().roles.map(r => [r.id, true])) });
+test('24h publica dia e noite atomicamente com chave existente; cópia mantém jornada', () => {
+  const d = seed(); const before = structuredClone(d); publishAssembly(d, s, input());
+  const rows = d.published.filter(x => x.publicationId);
+  assert.equal(rows.length, 12); assert.ok(rows.some(x => x.shift === 'day')); assert.ok(rows.some(x => x.shift === 'night'));
+  assert.equal(new Set(rows.map(x => x.publicationId)).size, 1);
+  const window = scheduleWindow(rows[0]); assert.equal(window.end - window.start, 24 * 3600000);
+  assert.equal(copyPublication(d, s, rows).assembly.workRegime, '24h'); assert.deepEqual(d.members, before.members);
+  const snapshot = structuredClone(d); const bad = input(); bad.selections.r5 = ['u0p5']; assert.throws(() => publishAssembly(d, s, bad)); assert.deepEqual(d, snapshot);
+});
+test('12x36 respeita turno; diarista dura 8h e aparece no dashboard apenas durante sua janela', () => {
+  const d = seed(); const x = { ...input(), workRegime: 'diarist' as const, startTime: '08:00' }; publishAssembly(d, s, x);
+  const rows = d.published.filter(x => x.publicationId); assert.equal(rows.length, 6);
+  const window = scheduleWindow(rows[0]); assert.equal(window.end - window.start, 8 * 3600000);
+  assert.equal(projectDashboard(d, 'u1', x.date, 'day', window.start - 1).total, 0);
+  assert.equal(projectDashboard(d, 'u1', x.date, 'day', window.start).total, 1);
+  assert.equal(projectDashboard(d, 'u1', x.date, 'day', window.end).total, 0);
+  assert.throws(() => validateRegime('diarist', 'day', '18:00')); assert.throws(() => validateRegime('24h', 'night'));
+  const night = { ...input(), workRegime: '12x36' as const, shift: 'night' as const }; publishAssembly(d, s, night);
+  const newPublication = d.published.find(r => r.date === night.date && r.workRegime === '12x36')!.publicationId;
+  const newRows = d.published.filter(r => r.publicationId === newPublication);
+  assert.equal(newRows.length, 6); assert.ok(newRows.every(r => r.shift === 'night'));
+});
+test('entrada de 24h permanece confirmada na madrugada e expira às 07h; diarista expira ao fim de 8h', () => {
+  const day = '2026-11-11'; const start = Date.parse(`${day}T07:00:00-03:00`);
+  const c = { unitId: 'u1', referenceDate: day, shift: 'night' as const, professionalIds: ['p'], windows: { p: { start, end: start + 24 * 3600000, shiftIds: [`u1|${day}|day`, `u1|${day}|night`] } } };
+  const record = { professionalId: 'p', unitId: 'u1', shiftId: `u1|${day}|day`, timestamp: `${day}T07:00:00-03:00`, received: true, validation: 'confirmed' as const, type: 'entry' as const };
+  assert.equal(confirmedProfessionals([record], c, start + 22 * 3600000).size, 1); assert.equal(confirmedProfessionals([record], c, start + 24 * 3600000).size, 0);
+  const diarist = { ...c, windows: { p: { start, end: start + 8 * 3600000, shiftIds: [`u1|${day}|day`] } } };
+  assert.equal(confirmedProfessionals([record], diarist, start + 7 * 3600000).size, 1);
+  assert.equal(confirmedProfessionals([record], diarist, start + 8 * 3600000).size, 0);
+});

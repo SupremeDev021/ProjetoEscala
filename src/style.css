@@ -2283,3 +2283,14 @@ td > svg {
 .rolecard:disabled { opacity: .65; cursor: not-allowed; }
 .publicationrow { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px; border-bottom:1px solid #e3eaf0; flex-wrap:wrap; }
 .savebar > div { flex-wrap:wrap; }
+
+.integration-panel { padding: 24px; margin: 24px 0; }
+.integration-panel h2 { margin-bottom: 12px; }
+.integration-panel p { margin: 12px 0; }
+.integration-panel .formgrid { margin: 20px 0; }
+.integration-rules { border: 1px solid #d9e4ed; border-radius: 12px; padding: 16px; }
+.integration-rules legend { color: #07538a; font-weight: 700; }
+.integration-rules .field { margin: 12px 0; }
+.field textarea { width: 100%; border: 1px solid #ccdce8; border-radius: 8px; padding: 12px; }
+.integration-panel td { max-width: 330px; white-space: normal; overflow-wrap: anywhere; }
+.rolecard b { max-width: 100%; overflow-wrap: anywhere; }

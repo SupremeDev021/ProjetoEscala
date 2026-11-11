@@ -1,0 +1,51 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { seed } from '../seed';
+import { newConfig, readConfig, saveConfig, integrationStatus } from './configuration';
+import { readMappings, saveMapping } from './mappings';
+import { BiofingerQueryService, normalizeRecords } from './queryService';
+import { SimulatedBiofingerAdapter } from './simulatedAdapter';
+import { confirmedProfessionals, shiftId, type ShiftContext } from '../services/pontoFacialService';
+import type { ExternalPunch } from './biofingerAdapter';
+const s = { userId: 'gestor', activeUnitId: 'u1' };
+const admin = { userId: 'admin', activeUnitId: 'u0' };
+const c: ShiftContext = { unitId: 'u1', referenceDate: '2026-11-10', shift: 'night', professionalIds: ['u1p0'] };
+const cfg = { ...newConfig('u1'), enabled: true, externalUnitId: '0001', equipmentIds: ['00007'] };
+const mapping = { unitId: 'u1', professionalId: 'u1p0', externalProfessionalId: '000042' };
+const record: ExternalPunch = { externalUnitId: '0001', externalProfessionalId: '000042', equipmentId: '00007', occurredAt: '2026-11-11T02:00:00-03:00', kind: 'entry', validation: 'confirmed', received: true, shiftId: shiftId(c) };
+test('configurações e IDs são independentes por unidade; gestor não acessa outra unidade', () => {
+  const d = seed(); saveConfig(d, s, cfg); saveMapping(d, s, mapping);
+  assert.equal(readConfig(d, s).externalUnitId, '0001'); assert.equal(readMappings(d, s)[0].externalProfessionalId, '000042');
+  assert.throws(() => saveConfig(d, s, newConfig('u0')));
+  assert.throws(() => readConfig(d, { ...s, activeUnitId: 'u0' }));
+  assert.throws(() => readMappings(d, { ...s, activeUnitId: 'u0' }));
+  assert.throws(() => saveMapping(d, s, { ...mapping, professionalId: 'u0p0' }));
+  assert.throws(() => saveMapping(d, s, { ...mapping, professionalId: 'u1p1' }));
+  saveConfig(d, admin, { ...newConfig('u0'), externalUnitId: '0002' });
+  saveMapping(d, admin, { ...mapping, unitId: 'u0', professionalId: 'u0p0' });
+  assert.equal(readConfig(d, s).externalUnitId, '0001'); assert.equal(readMappings(d, admin)[0].professionalId, 'u0p0');
+});
+test('configuração não aceita segredos, URL com autenticação/parâmetros ou sync fabricado', () => {
+  const d = seed();
+  for (const patch of [{ credentialReference: 'not-a-server-alias' }, { documentedServiceUrl: 'https://user:secret@example.invalid' }, { documentedServiceUrl: 'https://example.invalid/?token=secret' }, { pollSeconds: 0 }, { equipmentIds: ['a', 'a'] }]) assert.throws(() => saveConfig(d, s, { ...cfg, ...patch }));
+  saveConfig(d, s, { ...cfg, credentialReference: 'server:biofinger-cer-barra', secret: 'CANARY_SECRET_DO_NOT_PERSIST', lastSynchronization: 'fabricated' } as typeof cfg);
+  assert.ok(!JSON.stringify(d).includes('CANARY_SECRET_DO_NOT_PERSIST')); assert.ok(!JSON.stringify(d).includes('fabricated'));
+  assert.equal(integrationStatus, 'Aguardando configuração da integração');
+});
+test('normaliza exclusivamente por relação única de ID, unidade e equipamento; confirma madrugada', () => {
+  const normal = normalizeRecords([record], cfg, [mapping], c);
+  assert.deepEqual([...confirmedProfessionals(normal, c, Date.parse('2026-11-11T06:00:00-03:00'))], ['u1p0']);
+  for (const patch of [{ externalProfessionalId: '42' }, { externalUnitId: 'other' }, { equipmentId: 'other' }]) assert.deepEqual(normalizeRecords([{ ...record, ...patch }], cfg, [mapping], c), []);
+  assert.deepEqual(normalizeRecords([record], cfg, [], c), []);
+  assert.deepEqual(normalizeRecords([record], cfg, [mapping, { ...mapping, professionalId: 'u1p1' }], c), []);
+  assert.deepEqual(normalizeRecords([record], cfg, [mapping], { ...c, unitId: 'u0' }), []);
+  for (const patch of [{ kind: 'exit' as const }, { validation: 'pending' as const }, { validation: 'rejected' as const }, { received: false }, { occurredAt: '2030-01-01T00:00:00Z' }, { occurredAt: '2020-01-01T00:00:00Z' }, { shiftId: 'other' }]) assert.equal(confirmedProfessionals(normalizeRecords([{ ...record, ...patch }], cfg, [mapping], c), c, Date.parse('2026-11-11T06:00:00-03:00')).size, 0);
+});
+test('sem adaptador não há sincronização; simulação nunca preenche última sincronização real', async () => {
+  const unavailable = new BiofingerQueryService(null, cfg, [mapping]);
+  assert.deepEqual(await unavailable.load(c), []); assert.equal(unavailable.lastSynchronization, null);
+  const simulated = new BiofingerQueryService(new SimulatedBiofingerAdapter([record]), cfg, [mapping]);
+  assert.equal((await simulated.load(c)).length, 1); assert.equal(simulated.lastSynchronization, null); assert.ok(simulated.lastSimulation);
+  const failed = new BiofingerQueryService({ source: 'server-validated', query: async () => { throw Error('unavailable'); } }, cfg, [mapping]);
+  await assert.rejects(failed.load(c)); assert.equal(failed.lastSynchronization, null);
+});

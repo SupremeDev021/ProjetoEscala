@@ -5,6 +5,7 @@ export interface ShiftContext {
   referenceDate: string;
   shift: Shift;
   professionalIds: string[];
+  windows?: Record<string, { start: number; end: number; shiftIds: string[] }>;
 }
 export interface PunchRecord {
   professionalId: string;
@@ -34,9 +35,12 @@ export function confirmedProfessionals(records: PunchRecord[], c: ShiftContext, 
   const scheduled = new Set(c.professionalIds);
   return new Set(records.filter(r => {
     const timestamp = Date.parse(r.timestamp);
-    return scheduled.has(r.professionalId) && r.unitId === c.unitId && r.shiftId === shiftId(c) &&
-      r.received && r.validation === 'confirmed' && r.type === 'entry' && timestamp <= now &&
-      timestamp >= start - rules.earlyMinutes * 60000 && timestamp < Math.min(end, start + rules.lateMinutes * 60000);
+    const window = c.windows?.[r.professionalId];
+    const begins = window?.start ?? start;
+    const ends = window?.end ?? end;
+    return scheduled.has(r.professionalId) && r.unitId === c.unitId && (window ? window.shiftIds.includes(r.shiftId) : r.shiftId === shiftId(c)) && now >= begins && now < ends &&
+      r.received === true && r.validation === 'confirmed' && r.type === 'entry' && timestamp <= now &&
+      timestamp >= begins - rules.earlyMinutes * 60000 && timestamp < Math.min(ends, begins + rules.lateMinutes * 60000);
   }).map(r => r.professionalId));
 }
 export interface PontoFacialService {

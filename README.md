@@ -19,7 +19,7 @@ Para uma instalação reproduzível com o lockfile: `npm ci`. O servidor de dese
 
 ```sh
 npm run build       # TypeScript e bundle de produção
-npm test            # 19 testes de domínio e dashboard
+npm test            # 31 testes de domínio e dashboard
 npm run preview     # servir o build localmente
 ```
 
@@ -94,7 +94,7 @@ O dashboard externo é independente das telas administrativas, que foram preserv
 - O horário real usa o relógio do dispositivo no fuso `America/Sao_Paulo`, atualizado a cada segundo. Diurno: 07h até 18h59; noturno: 19h até 06h59. Antes de 07h, a data de referência continua sendo o dia anterior. Ao voltar à aba, o horário é sincronizado imediatamente.
 - O painel **Demonstração** reúne seleção da unidade, fonte, simulador e atalhos de transição. O relógio simulado pode ser pausado. “Voltar ao horário real” restaura a fonte local e o horário do dispositivo.
 - A fonte padrão lê somente `published` do administrativo no mesmo navegador. O cenário fictício de 10 e 11/11/2026 é independente e nunca grava no administrativo. Atalhos de horário carregam esse cenário. “Simular atualização” amplia a composição apenas no cenário fictício; na fonte local o botão consulta novamente as publicações.
-- Os profissionais são agrupados por cargo, ordenados alfabeticamente e deduplicados. Novos cargos na fonte aparecem automaticamente. Especialidade e setor opcional só aparecem quando cadastrados. Vínculos de outras unidades e rascunhos são descartados pela projeção. “Sem escala cadastrada” é diferente de publicação com lista vazia.
+- Os profissionais são agrupados por cargo, ordenados alfabeticamente e deduplicados. Novos cargos na fonte aparecem automaticamente. Especialidade foi removida da apresentação; somente nomes e cargos são exibidos. Vínculos de outras unidades e rascunhos são descartados pela projeção. “Sem escala cadastrada” é diferente de publicação com lista vazia.
 - Os indicadores mostram escalados, nunca presença confirmada. Enfermagem agrega enfermeiros e técnicos. Última atualização representa o timestamp das publicações exibidas, e não o relógio ou o instante da consulta.
 - **Modo TV** aumenta as fontes. **Tela cheia** usa a API nativa do navegador. A rolagem avança lentamente, pausa por 15 segundos após interação e aguarda 7 segundos no final antes de voltar ao início. Movimento reduzido desabilita rolagem e animações. O painel de controles aberto também pausa a rolagem.
 - Sem rede, os dados locais continuam disponíveis com aviso. Erros de leitura preservam o último conjunto válido e sinalizam indisponibilidade. Não há sincronização remota, autenticação ou promessa de atualização por servidor.
@@ -102,7 +102,7 @@ O dashboard externo é independente das telas administrativas, que foram preserv
 
 A interface `DashboardRepository` permite substituir o carregamento local por uma API sem reescrever os cartões. Na integração futura, esse endpoint deve entregar somente publicações autorizadas para a unidade; Supabase/PostgreSQL/RLS e autenticação continuam fora do MVP. O painel de demonstração deve ser removido ou desabilitado na versão de produção.
 
-`npm test` executa 19 testes, incluindo viradas exatas, madrugada/ano/mês, cargos, unidades, indicadores, deduplicação, rascunhos, estados vazios e as regressões administrativas. A interface foi verificada com Chromium em desktop, tablet, celular e modo TV, incluindo tela cheia, relógio automático, retorno à aba e estados de falha.
+`npm test` executa 31 testes, incluindo viradas exatas, madrugada/ano/mês, cargos, unidades, indicadores, deduplicação, rascunhos, estados vazios e as regressões administrativas. A interface foi verificada com Chromium em desktop, tablet, celular e modo TV, incluindo tela cheia, relógio automático, retorno à aba e estados de falha.
 
 ## Dashboard em slides por função
 
@@ -138,3 +138,15 @@ As instruções atualizadas para quiosque Windows, arquivo da logo e simulação
 
 `npm test` cobre data/fuso, rejeição de outras datas, publicação conjunta, cargos vazios, ausência de alterações parciais, versões, duplicatas, cópia com filtragem e isolamento por unidade, além das regressões existentes de cadastro e dashboard. `npm run build` valida TypeScript e o bundle de produção. O fluxo no Chromium foi verificado com confirmação/revisão, navegação, publicação final, cópia, cancelamento de descarte, retorno após mudança de dia e visualização móvel.
 
+
+## Integração Ponto Facial, CBO e jornadas
+
+A área administrativa inclui **Integração Ponto Facial**, com configuração Biofinger/Hikvision e relações de IDs independentes por unidade. O estado permanece **Aguardando configuração da integração**, sem sincronização real, endpoint inventado ou acesso a equipamentos pelo navegador. Só há referência por alias a uma futura credencial no servidor. Não informe segredos nesta demonstração.
+
+O cadastro básico mantém nome e cargo, vínculos e ativação/desativação. A especialidade legada fica preservada no armazenamento histórico, mas é removida dos formulários, listas e dashboard. O catálogo aditivo contém os 50 CBOs solicitados, sem reclassificar profissionais existentes nem trocar IDs.
+
+Em Profissionais do CER BARRA há uma prévia de importação **fictícia**, com decisão e confirmação explícitas, códigos desconhecidos e possíveis correspondências encaminhados para revisão. Não foi recebida a planilha nominal nesta solicitação. A demonstração pública não permite carregar ou editar uma listagem real e não persiste CPF/CNS.
+
+A montagem oferece **12×36**, **24 horas (dia e noite juntos)** e **diarista de 8 horas**. A publicação de 24h é atômica nos dois turnos. Diaristas têm início configurável entre 07h e 11h (padrão 08h) e deixam o painel ao completar 8 horas. Não há geração de recorrência ou cálculo automático de descanso.
+
+Detalhes, contratos, limitações e lista do que falta para conectar: [Integração Biofinger/Hikvision](docs/integracao-biofinger.md). `npm test` inclui as regressões de integração, importação/CBO e jornadas; `npm run build` valida TypeScript e o bundle.
