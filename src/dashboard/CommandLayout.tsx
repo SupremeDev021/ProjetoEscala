@@ -1,12 +1,7 @@
 import { Sun, Moon, Monitor, Maximize, Minimize } from "lucide-react";
 import { saoPauloClock, ZONE } from "./data";
 type Clock = ReturnType<typeof saoPauloClock>;
-const logos = import.meta.glob("../assets/logo-rio-saude.{png,svg,webp,jpg,jpeg}", {
-  eager: true,
-  query: "?url",
-  import: "default",
-});
-const logo = Object.values(logos)[0] as string | undefined;
+import logo from "../../copy-of-untitled-design-11-.webp";
 export const roleLabel = (name: string) =>
   ({
     Médico: "Médicos",
@@ -38,13 +33,9 @@ export function CommandHeader({
     <header className="rs-header">
       <div className="rs-topline">
         <div className="rs-brand">
-          {logo ? (
-            <img src={logo} alt="Prefeitura do Rio / Rio Saúde" />
-          ) : (
-            <div className="rs-logo-slot" aria-label="Espaço reservado para a logo oficial">
-              <b>Logo institucional</b>
-            </div>
-          )}
+          <div className="rs-logo-frame">
+            <img src={logo} alt="Prefeitura do Rio / Rio Saúde" width="888" height="565" />
+          </div>
           <span />
           <div>
             <b>PAINEL DE ESCALAS</b>

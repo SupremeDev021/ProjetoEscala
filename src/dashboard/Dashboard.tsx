@@ -27,7 +27,7 @@ export function DashboardPage() {
   const [now, setNow] = useState(() => new Date());
   const request = useRef(0);
   const ownsFullscreen = useRef(false);
-  const [controls, setControls] = useState(true);
+  const [controls, setControls] = useState(false);
   const controlsTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [punchState, setPunchState] = useState<{ key: string; ids: Set<string> }>({ key: '', ids: new Set() });
   const [simulate, setSimulate] = useState(false);
@@ -37,7 +37,6 @@ export function DashboardPage() {
       clearTimeout(controlsTimer.current);
       controlsTimer.current = setTimeout(() => setControls(false), 5000);
     };
-    show();
     window.addEventListener('pointermove', show);
     window.addEventListener('pointerdown', show);
     window.addEventListener('keydown', show);
@@ -48,11 +47,35 @@ export function DashboardPage() {
       window.removeEventListener('keydown', show);
     };
   }, []);
+  const autoFullscreenAttempted = useRef(false);
   useEffect(() => {
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-      void document.documentElement.requestFullscreen().then(() => { ownsFullscreen.current = true; }).catch(() => {});
+    if (!tv) return;
+    const enter = async () => {
+      if (document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+      try {
+        await document.documentElement.requestFullscreen();
+        ownsFullscreen.current = true;
+        setFullscreen(true);
+      } catch {
+        // Browsers may require a gesture. TV layout and slides continue unchanged.
+      }
+    };
+    if (!autoFullscreenAttempted.current) {
+      autoFullscreenAttempted.current = true;
+      void enter();
     }
-  }, []);
+    const activate = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest('button, input, select, a, summary')) return;
+      if (event instanceof KeyboardEvent && ['Escape', 'Tab'].includes(event.key)) return;
+      if (navigator.userActivation?.isActive) void enter();
+    };
+    window.addEventListener('pointerdown', activate);
+    window.addEventListener('keydown', activate);
+    return () => {
+      window.removeEventListener('pointerdown', activate);
+      window.removeEventListener('keydown', activate);
+    };
+  }, [tv]);
   const clock = saoPauloClock(now);
   const refresh = useCallback(async () => {
     const id = ++request.current;

@@ -94,7 +94,7 @@ O dashboard externo é independente das telas administrativas, que foram preserv
 - Os indicadores mostram escalados, nunca presença confirmada. Enfermagem agrega enfermeiros e técnicos. Última atualização representa o timestamp das publicações exibidas, e não o relógio ou o instante da consulta.
 - **Modo TV** aumenta as fontes. **Tela cheia** usa a API nativa do navegador. A rolagem avança lentamente, pausa por 15 segundos após interação e aguarda 7 segundos no final antes de voltar ao início. Movimento reduzido desabilita rolagem e animações. O painel de controles aberto também pausa a rolagem.
 - Sem rede, os dados locais continuam disponíveis com aviso. Erros de leitura preservam o último conjunto válido e sinalizam indisponibilidade. Não há sincronização remota, autenticação ou promessa de atualização por servidor.
-- Não existe arquivo oficial de logo no projeto. O cabeçalho usa um espaço reservado identificado, sem copiar o brasão ou a imagem fornecida. Substitua esse bloco por uma imagem oficial autorizada quando houver o arquivo.
+- A logo oficial fornecida está em `copy-of-untitled-design-11-.webp`, na raiz. O cabeçalho importa o original e o Vite inclui a imagem na publicação.
 
 A interface `DashboardRepository` permite substituir o carregamento local por uma API sem reescrever os cartões. Na integração futura, esse endpoint deve entregar somente publicações autorizadas para a unidade; Supabase/PostgreSQL/RLS e autenticação continuam fora do MVP. O painel de demonstração deve ser removido ou desabilitado na versão de produção.
 
@@ -112,19 +112,19 @@ Listas longas têm páginas internas. Todas as páginas de um cargo são exibida
 
 Cabeçalho, relógio de São Paulo e plantão se mantêm durante a troca de slides. Unidade, data de referência ou plantão novos reiniciam a apresentação. A virada noturna após meia-noite, o modo TV, tela cheia, a fonte de publicações e o simulador continuam funcionando. Rascunhos e nomes de outras unidades permanecem excluídos.
 
-Não foi fornecido arquivo oficial de logo: há um espaço reservado textual identificado. Para ativar a imagem oficial, adicione **um** arquivo `src/assets/logo-rio-saude.png`, `.svg` ou `.webp` e refaça o build. O cabeçalho inclui essa imagem automaticamente; nenhum símbolo institucional é recriado.
+A logo oficial `copy-of-untitled-design-11-.webp` é exibida pelo cabeçalho persistente em todos os slides, sem recriar símbolos institucionais.
 
 Validações: build para GitHub Pages, 11 testes de domínio/plantões e Chromium em celular, tablet, Full HD e 4K, cobrindo um cargo por slide, reprodução automática, pausa/retomada, setas, paginação de 30 nomes, unidade e plantão.
 
 ### Refinamento visual da apresentação
 
-O acabamento atual preserva carrossel, tempos, paginação, dados, rotas e plantões. `refinement.css` aplica a faixa azul `#07538A → #087DC0`, o nome da unidade em peso 800 e nomes dos profissionais em peso 700 sobre linhas suaves `#F4F8FC`. Os ícones e contadores do cargo são apenas apresentação; nenhum estado, intervalo ou filtro foi alterado. O indicador de plantão foi reposicionado junto ao relógio. A imagem oficial continua usando o mesmo ponto de entrada documentado acima.
+O acabamento atual preserva carrossel, tempos, paginação, dados, rotas e plantões. `refinement.css` aplica a faixa azul `#07538A → #087DC0`, o nome da unidade em peso 800 e nomes dos profissionais em peso 700 sobre linhas suaves `#F4F8FC`. Os ícones e contadores do cargo são apenas apresentação; nenhum estado, intervalo ou filtro foi alterado. O indicador de plantão foi reposicionado junto ao relógio. A imagem oficial utiliza o arquivo original na raiz do repositório.
 
 ### Abertura direta em TV
 
 O dashboard público agora inicia com modo TV ativado e horário real de São Paulo. A interface de demonstração, simulador e os textos de aviso solicitados foram retirados da tela pública. O carrossel continua automático, com setas e pausa. O plantão e os horários ficaram maiores. Os dados continuam exclusivamente locais/publicados; sem publicação na data e no turno atuais, o painel apresenta o estado vazio. Os rótulos e as funcionalidades da área administrativa foram preservados.
 
-O navegador exige uma interação para entrar em tela cheia nativa; o botão continua disponível. O layout TV e a reprodução dos slides já estão ativos na abertura, sem depender desse botão. A logo deve ser incluída como arquivo em `src/assets/logo-rio-saude.png`, `.svg` ou `.webp`; o cabeçalho passa a carregá-la automaticamente no próximo build.
+O navegador exige uma interação para entrar em tela cheia nativa; o botão continua disponível. O layout TV e a reprodução dos slides já estão ativos na abertura, sem depender desse botão. A logo original `copy-of-untitled-design-11-.webp` já está vinculada ao cabeçalho. Os controles iniciam ocultos e aparecem por cinco segundos após interação. O arquivo `public/iniciar-tv.cmd` abre o Edge em quiosque no Windows para tela cheia automática sem clique; pode ser iniciado junto com o sistema.
 
 ### Controles de TV e confirmação de ponto
 

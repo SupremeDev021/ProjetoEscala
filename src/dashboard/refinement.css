@@ -505,3 +505,24 @@
 .tv-mode .rs-slide-controls:focus-within { opacity: 1; pointer-events: auto; }
 .ponto-dev { padding: 16px; background: #f4f8fc; }
 .ponto-dev button { margin: 8px; padding: 8px; border: 1px solid #07538a; }
+
+/* Frame removes only the original file's white padding, without stretching it. */
+.rs-logo-frame {
+  width: clamp(200px, 19vw, 500px);
+  aspect-ratio: 888 / 270;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.rs-brand .rs-logo-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .rs-logo-frame { width: 170px; }
+}
