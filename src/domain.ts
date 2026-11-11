@@ -66,6 +66,7 @@ export function saveSchedule(
   publish: boolean,
 ) {
   scope(d, s, input.unitId);
+  if (input.date !== todaySaoPaulo()) throw Error("A montagem deve usar o dia atual de São Paulo.");
   if (
     !input.date ||
     !d.teams.some(
@@ -242,4 +243,67 @@ export function saveAccess(d: Data, s: Session, u: UserAccess) {
   d.users = d.users.filter((x) => x.id !== u.id);
   d.users.push(u);
   event(d, s, "Acesso", u.id, u.active ? "Autorizar" : "Revogar", old, u);
+}
+
+
+export function todaySaoPaulo(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const part = (type: string) => parts.find(p => p.type === type)!.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+export interface Assembly {
+  unitId: string; date: string; shift: Schedule["shift"]; teamId: string;
+  selections: Record<string, string[]>;
+  confirmed: Record<string, boolean>;
+}
+export function publishAssembly(d: Data, s: Session, input: Assembly) {
+  scope(d, s, input.unitId);
+  if (input.date !== todaySaoPaulo()) throw Error("A montagem deve usar o dia atual de São Paulo.");
+  if (!["day", "night"].includes(input.shift) || !d.teams.some(t => t.id === input.teamId && t.unitId === input.unitId && t.active))
+    throw Error("Equipe ou turno inválido.");
+  const roles = d.roles.filter(r => r.active);
+  if (!roles.length || roles.some(r => !input.confirmed[r.id])) throw Error("Confirme todos os cargos antes de publicar.");
+  if (!roles.some(r => input.selections[r.id]?.length)) throw Error("Selecione pelo menos um profissional na montagem.");
+  const timestamp = new Date().toISOString();
+  const records = roles.map(r => {
+    const ids = [...new Set(input.selections[r.id] || [])];
+    const allowed = available(d, input.unitId, r.id);
+    if (ids.some(id => !allowed.some(p => p.id === id))) throw Error("Profissional indisponível para esta unidade e cargo.");
+    const target = { unitId: input.unitId, date: input.date, shift: input.shift, teamId: input.teamId, roleId: r.id };
+    const old = d.schedules.find(x => key(x) === key(target));
+    const published = d.published.find(x => key(x) === key(target));
+    return { ...target, id: old?.id || published?.id || crypto.randomUUID(), professionalIds: ids,
+      status: "published" as const, version: Math.max(old?.version || 0, published?.version || 0) + 1, updatedAt: timestamp };
+  });
+  // Build and audit on an isolated copy: failures never leave a partial publication.
+  const next = structuredClone(d);
+  for (const record of records) {
+    const old = next.schedules.find(x => key(x) === key(record));
+    next.schedules = next.schedules.filter(x => key(x) !== key(record));
+    next.published = next.published.filter(x => key(x) !== key(record));
+    next.schedules.push(record);
+    next.published.push(structuredClone(record));
+    event(next, s, "Escala", record.id, "Publicar", old, record);
+  }
+  Object.assign(d, next);
+}
+export function copyPublication(d: Data, s: Session, records: Schedule[]) {
+  if (!records.length) throw Error("Publicação vazia.");
+  const first = records[0];
+  scope(d, s, first.unitId);
+  if (records.some(x => x.unitId !== first.unitId || x.date !== first.date || x.shift !== first.shift || x.teamId !== first.teamId || x.status !== "published"))
+    throw Error("Publicação incompatível.");
+  if (!d.teams.some(t => t.id === first.teamId && t.unitId === first.unitId && t.active)) throw Error("A equipe de origem está inativa ou indisponível.");
+  const selections: Record<string, string[]> = {};
+  const ignored = new Set<string>();
+  for (const record of records) {
+    const allowed = d.roles.some(r => r.id === record.roleId && r.active) ? available(d, first.unitId, record.roleId) : [];
+    selections[record.roleId] = record.professionalIds.filter(id => {
+      if (allowed.some(p => p.id === id)) return true;
+      ignored.add(d.professionals.find(p => p.id === id)?.fullName || id); return false;
+    });
+  }
+  return { assembly: { unitId: first.unitId, date: todaySaoPaulo(), shift: first.shift, teamId: first.teamId, selections, confirmed: {} } as Assembly, ignored: [...ignored] };
 }

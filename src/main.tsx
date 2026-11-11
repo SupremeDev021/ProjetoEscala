@@ -57,12 +57,15 @@ import type {
   Unit,
   Shift,
 } from "./models";
-import { seed, DEMO_DATE } from "./seed";
+import { seed } from "./seed";
 import {
   STORAGE_KEY,
   key,
   available,
-  saveSchedule,
+  publishAssembly,
+  copyPublication,
+  todaySaoPaulo,
+  type Assembly,
   saveProfessional,
   toggleProfessional,
   saveTeam,
@@ -640,702 +643,98 @@ function Field({
   );
 }
 function SchedulePage() {
-  const { d, s, unit, change } = useApp();
-  const [date, setDate] = useState(DEMO_DATE);
-  const [shift, setShift] = useState<Shift>("day");
-  const [teamId, setTeam] = useState(
-    d.teams.find((t) => t.unitId === s.activeUnitId && t.active)?.id || "",
-  );
-  const [roleId, setRole] = useState("r0");
-  const [ids, setIds] = useState<string[]>([]);
-  const [dirty, setDirty] = useState(false);
+  const { d, s, unit, change, toast } = useApp();
+  const location = useLocation();
+  const roles = d.roles.filter(r => r.active);
+  const fresh = (): Assembly => ({ unitId: s.activeUnitId, date: todaySaoPaulo(), shift: "day",
+    teamId: d.teams.find(t => t.unitId === s.activeUnitId && t.active)?.id || "", selections: {}, confirmed: {} });
+  const [draft, setDraft] = useState<Assembly>(fresh);
+  const [index, setIndex] = useState(0);
   const [search, setSearch] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [next, setNext] = useState<(() => void) | null>(null);
-  const [view, setView] = useState<Schedule | null>(null);
-  const [duplicate, setDuplicate] = useState<Schedule | null>(null);
-  const [dupDate, setDupDate] = useState("");
-  const [filterDate, setFilterDate] = useState("");
-  const [filterTeam, setFilterTeam] = useState("");
-  const [filterShift, setFilterShift] = useState("");
-  const [filterRole, setFilterRole] = useState("");
-  const target = { unitId: s.activeUnitId, date, shift, teamId, roleId };
-  const current = d.schedules.find((x) => key(x) === key(target));
+  const [publish, setPublish] = useState(false);
+  const [pending, setPending] = useState<(() => void) | null>(null);
+  const [copyNotice, setCopyNotice] = useState("");
+  const dirty = Object.keys(draft.selections).length > 0 || Object.keys(draft.confirmed).length > 0;
+  const reset = () => { setDraft(fresh()); setIndex(0); setSearch(""); setPublish(false); setPending(null); setCopyNotice(""); };
   useEffect(() => {
-    setIds(current?.professionalIds || []);
-    setDirty(false);
-    setSearch("");
-  }, [date, shift, teamId, roleId, current?.updatedAt]);
+    const source = (location.state as { publication?: Schedule[] } | null)?.publication;
+    if (!source) return;
+    window.history.replaceState({ ...window.history.state, usr: null }, "");
+    try {
+      const result = copyPublication(d, s, source);
+      setDraft(result.assembly); setIndex(0);
+      setCopyNotice(result.ignored.length ? "Nomes desconsiderados: " + result.ignored.join(", ") : "Publicação copiada. Confirme todos os cargos antes de publicar.");
+    } catch (e) { toast((e as Error).message); }
+  }, [location.key]);
   useEffect(() => {
-    const f = (e: BeforeUnloadEvent) => {
-      if (dirty) {
-        e.preventDefault();
-        e.returnValue = "";
+    const check = () => {
+      if (todaySaoPaulo() !== draft.date) {
+        reset(); toast("O dia mudou em São Paulo. A montagem foi reiniciada para o dia atual.");
       }
     };
-    window.addEventListener("beforeunload", f);
-    return () => window.removeEventListener("beforeunload", f);
-  }, [dirty]);
-  const guard = (fn: () => void) => {
-    if (dirty) {
-      setNext(() => fn);
-      setConfirm("unsaved");
-    } else fn();
-  };
-  const all = available(d, s.activeUnitId, roleId);
-  const visible = all.filter((p) =>
-    p.fullName.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
-  );
-  const standard = d.members
-    .filter((m) => m.teamId === teamId && m.roleId === roleId)
-    .map((m) => m.professionalId)
-    .filter((id) => all.some((p) => p.id === id));
-  const update = (v: string[]) => {
-    setIds(v);
-    setDirty(true);
-  };
-  const record = (): Schedule => ({
-    ...target,
-    id: current?.id || "",
-    professionalIds: ids,
-    status: "draft",
-    version: 0,
-    updatedAt: "",
-  });
-  const save = (publish: boolean) => {
-    if (
-      change(
-        (x) => saveSchedule(x, s, record(), publish),
-        publish
-          ? "Escala publicada. O dashboard já mostra esta versão."
-          : "Rascunho salvo. O dashboard mantém a versão publicada.",
-      )
-    ) {
-      setDirty(false);
-      setConfirm("");
-    }
-  };
-  const list = d.schedules
-    .filter(
-      (x) =>
-        x.unitId === s.activeUnitId &&
-        (!filterDate || x.date === filterDate) &&
-        (!filterTeam || x.teamId === filterTeam) &&
-        (!filterShift || x.shift === filterShift) &&
-        (!filterRole || x.roleId === filterRole),
-    )
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  return (
-    <div data-dirty={dirty}>
-      <PageTitle
-        eyebrow="PLANEJAMENTO ASSISTENCIAL · DADOS FICTÍCIOS"
-        title="Montagem de escala"
-        subtitle="Organize cada plantão. Conecte as pessoas certas ao cuidado."
-      >
-        <a className="btn" href={dashboardUrl} target="_blank" rel="noreferrer">
-          <Monitor size={17} />
-          Abrir dashboard
-          <ArrowUpRight size={15} />
-        </a>
-      </PageTitle>
-      <div className="stats">
-        <Stat
-          icon={<Building2 />}
-          label="Unidade em gestão"
-          value={unit.name}
-          note="Unidade fictícia de demonstração"
-        />
-        <Stat
-          icon={<Users />}
-          label="Profissionais ativos"
-          value={available(d, s.activeUnitId).length}
-          note="Disponíveis para compor escalas"
-        />
-        <Stat
-          icon={<LayoutGrid />}
-          label="Equipes padrão"
-          value={
-            d.teams.filter((t) => t.unitId === s.activeUnitId && t.active)
-              .length
-          }
-          note="Modelos para facilitar o planejamento"
-        />
-        <Stat
-          icon={<CalendarDays />}
-          label="Escalas publicadas"
-          value={d.published.filter((x) => x.unitId === s.activeUnitId).length}
-          note="Versões visíveis no dashboard"
-        />
-      </div>
-      <section className="panel">
-        <div className="sectionheading">
-          <div className="headingicon">
-            <CalendarDays size={20} />
-          </div>
-          <div>
-            <h2>Defina o plantão</h2>
-            <p>Escolha os parâmetros para montar ou editar uma escala.</p>
-          </div>
-          <Badge tone={current?.status === "published" ? "green" : "blue"}>
-            {dirty
-              ? "Edição não salva"
-              : current?.status === "published"
-                ? "Publicada · v" + current.version
-                : current
-                  ? "Rascunho · v" + current.version
-                  : "Nova escala"}
-          </Badge>
-        </div>
-        <div className="filters">
-          <Field label="Unidade">
-            <div className="readonly">
-              <Building2 size={16} />
-              {unit.name}
-            </div>
-          </Field>
-          <Field label="Data do plantão">
-            <input
-              type="date"
-              value={date}
-              required
-              onChange={(e) => {
-                const value = e.target.value;
-                guard(() => setDate(value));
-              }}
-            />
-          </Field>
-          <Field label="Turno">
-            <select
-              value={shift}
-              onChange={(e) => {
-                const value = e.target.value as Shift;
-                guard(() => setShift(value));
-              }}
-            >
-              <option value="day">Diurno · 07h–19h</option>
-              <option value="night">Noturno · 19h–07h</option>
-            </select>
-          </Field>
-          <Field label="Equipe">
-            <select
-              value={teamId}
-              onChange={(e) => {
-                const value = e.target.value;
-                guard(() => setTeam(value));
-              }}
-            >
-              <option value="" disabled>
-                Selecione uma equipe
-              </option>
-              {d.teams
-                .filter((t) => t.unitId === s.activeUnitId && t.active)
-                .map((t) => (
-                  <option key={t.id} value={t.id}>
-                    Equipe {t.name}
-                  </option>
-                ))}
-            </select>
-          </Field>
-          <button
-            className="btn templatebtn"
-            disabled={!teamId}
-            onClick={() => {
-              if (ids.length) {
-                setConfirm("template");
-              } else update(standard);
-            }}
-          >
-            <RotateCcw size={16} />
-            Carregar equipe padrão
-          </button>
-        </div>
-        <div className="rolearea">
-          <div className="labelrow">
-            <b>Selecione o cargo</b>
-            <span>Profissionais ativos nesta unidade</span>
-          </div>
-          <div className="rolegrid">
-            {d.roles
-              .filter((r) => r.active)
-              .map((r, i) => (
-                <button
-                  key={r.id}
-                  className={"rolecard " + (r.id === roleId ? "selected" : "")}
-                  onClick={() => guard(() => setRole(r.id))}
-                >
-                  <span className="roleicon">
-                    {i === 0 ? (
-                      <Activity size={20} />
-                    ) : i === 1 ? (
-                      <ShieldCheck size={20} />
-                    ) : (
-                      <UserRound size={20} />
-                    )}
-                  </span>
-                  <b>{r.name}</b>
-                  <span>
-                    {available(d, s.activeUnitId, r.id).length} profissionais
-                  </span>
-                  {r.id === roleId && <Check className="rolecheck" size={14} />}
-                </button>
-              ))}
-          </div>
-        </div>
-      </section>
-      <div className="selectiongrid">
-        <section className="panel peoplepanel">
-          <div className="sectionheading">
-            <div>
-              <h2>
-                Profissionais disponíveis{" "}
-                <span className="count">{all.length}</span>
-              </h2>
-              <p>
-                {d.roles.find((r) => r.id === roleId)?.name} · {unit.name}
-              </p>
-            </div>
-          </div>
-          <div className="searchbox">
-            <Search size={17} />
-            <input
-              aria-label="Pesquisar profissional"
-              placeholder="Pesquisar profissional pelo nome..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button
-                aria-label="Limpar pesquisa"
-                onClick={() => setSearch("")}
-              >
-                <X size={16} />
-              </button>
-            )}
-          </div>
-          <div className="selectiontools">
-            <button
-              onClick={() =>
-                update([...new Set([...ids, ...visible.map((p) => p.id)])])
-              }
-            >
-              Selecionar todos visíveis
-            </button>
-            <span>{visible.length} encontrados</span>
-          </div>
-          <div className="peoplelist">
-            {visible.map((p) => (
-              <label
-                key={p.id}
-                className={"person " + (ids.includes(p.id) ? "checked" : "")}
-              >
-                <input
-                  type="checkbox"
-                  checked={ids.includes(p.id)}
-                  onChange={() =>
-                    update(
-                      ids.includes(p.id)
-                        ? ids.filter((id) => id !== p.id)
-                        : [...ids, p.id],
-                    )
-                  }
-                />
-                <span className="personavatar">
-                  {p.fullName
-                    .split(" ")
-                    .map((x) => x[0])
-                    .slice(0, 2)
-                    .join("")}
-                </span>
-                <span>
-                  <b>{p.fullName}</b>
-                  <small>
-                    {p.specialty ||
-                      d.roles.find((r) => r.id === p.roleId)?.name}
-                  </small>
-                </span>
-                {standard.includes(p.id) && (
-                  <Badge tone="neutral">Equipe padrão</Badge>
-                )}
-              </label>
-            ))}
-            {!visible.length && (
-              <Empty text="Nenhum profissional encontrado para este cargo ou pesquisa." />
-            )}
-          </div>
-          <div className="listnote">
-            <Info size={15} />A seleção altera apenas este plantão, sem
-            modificar a equipe padrão.
-          </div>
-        </section>
-        <section className="panel selectedpanel">
-          <div className="sectionheading">
-            <div>
-              <h2>Profissionais selecionados</h2>
-              <p>Composição para este plantão</p>
-            </div>
-            <span className="bigcount">
-              {ids.length.toString().padStart(2, "0")}
-            </span>
-          </div>
-          <div className="selectedsummary">
-            <span>
-              <CalendarDays size={15} />
-              {date ? dateLabel(date) : "Selecione a data"}
-            </span>
-            <span>
-              {shift === "day" ? <Sun size={15} /> : <Moon size={15} />}{" "}
-              {shiftLabel(shift)}
-            </span>
-          </div>
-          <div className="chips">
-            {ids.map((id) => {
-              const p = d.professionals.find((p) => p.id === id);
-              return (
-                <div className="chip" key={id}>
-                  <span className="dot" />
-                  <div>
-                    <b>{p?.fullName || "Profissional histórico"}</b>
-                    <small>
-                      {standard.includes(id)
-                        ? "Composição padrão"
-                        : "Adicionado a este plantão"}
-                      {!p?.active ? " · Inativo" : ""}
-                    </small>
-                  </div>
-                  <button
-                    aria-label={"Remover " + p?.fullName}
-                    onClick={() => update(ids.filter((x) => x !== id))}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              );
-            })}
-            {!ids.length && (
-              <Empty text="Selecione profissionais ao lado ou carregue uma equipe padrão." />
-            )}
-          </div>
-          <div className="selectedbottom">
-            <button
-              className="textbtn"
-              disabled={!ids.length}
-              onClick={() => setConfirm("clear")}
-            >
-              Limpar seleção
-            </button>
-            <div className="callout small">
-              <ShieldCheck size={18} />
-              <span>
-                Rascunhos ficam na gestão. Apenas versões publicadas aparecem no
-                dashboard.
-              </span>
-            </div>
-          </div>
-        </section>
-      </div>
-      <div className="savebar">
-        <div>
-          <span className={"dot " + (dirty ? "amber" : "")} />
-          <span>
-            {dirty
-              ? "Você tem alterações não salvas"
-              : "Sua equipe padrão permanece preservada"}
-          </span>
-        </div>
-        <div>
-          <button
-            className="btn text"
-            onClick={() =>
-              guard(() => {
-                setIds(current?.professionalIds || []);
-                setDirty(false);
-              })
-            }
-          >
-            Cancelar edição
-          </button>
-          <button
-            className="btn"
-            disabled={!date || !teamId}
-            onClick={() => save(false)}
-          >
-            <Save size={16} />
-            Salvar rascunho
-          </button>
-          <button
-            className="btn primary"
-            disabled={!ids.length || !date || !teamId}
-            onClick={() => setConfirm("publish")}
-          >
-            <Send size={16} />
-            Publicar escala
-          </button>
-        </div>
-      </div>
-      <section className="panel existing">
-        <div className="sectionheading">
-          <div>
-            <h2>Escalas existentes</h2>
-            <p>Consulte versões e continue de onde parou.</p>
-          </div>
-          <Badge tone="neutral">{list.length} registros</Badge>
-        </div>
-        <div className="tablefilters">
-          <input
-            aria-label="Filtrar data"
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-          />
-          <select
-            aria-label="Filtrar equipe"
-            value={filterTeam}
-            onChange={(e) => setFilterTeam(e.target.value)}
-          >
-            <option value="">Todas as equipes</option>
-            {d.teams
-              .filter((t) => t.unitId === s.activeUnitId)
-              .map((t) => (
-                <option key={t.id} value={t.id}>
-                  Equipe {t.name}
-                </option>
-              ))}
-          </select>
-          <select
-            aria-label="Filtrar turno"
-            value={filterShift}
-            onChange={(e) => setFilterShift(e.target.value)}
-          >
-            <option value="">Todos os turnos</option>
-            <option value="day">Diurno</option>
-            <option value="night">Noturno</option>
-          </select>
-          <select
-            aria-label="Filtrar cargo"
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-          >
-            <option value="">Todos os cargos</option>
-            {d.roles.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="tablewrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Data / Turno</th>
-                <th>Equipe</th>
-                <th>Cargo</th>
-                <th>Escalados</th>
-                <th>Status</th>
-                <th>Versão</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.slice(0, 60).map((x) => (
-                <tr key={x.id}>
-                  <td>
-                    <b>{dateLabel(x.date)}</b>
-                    <small>{shiftLabel(x.shift)}</small>
-                  </td>
-                  <td>Equipe {d.teams.find((t) => t.id === x.teamId)?.name}</td>
-                  <td>{d.roles.find((r) => r.id === x.roleId)?.name}</td>
-                  <td>
-                    <Users size={14} /> {x.professionalIds.length}
-                  </td>
-                  <td>
-                    <Badge tone={x.status === "published" ? "green" : "amber"}>
-                      {x.status === "published" ? "Publicada" : "Rascunho"}
-                    </Badge>
-                  </td>
-                  <td>v{x.version}</td>
-                  <td>
-                    <div className="rowactions">
-                      <button
-                        title="Visualizar"
-                        aria-label="Visualizar escala"
-                        onClick={() => setView(x)}
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        title="Editar"
-                        aria-label="Editar escala"
-                        onClick={() =>
-                          guard(() => {
-                            setDate(x.date);
-                            setShift(x.shift);
-                            setTeam(x.teamId);
-                            setRole(x.roleId);
-                            setIds(x.professionalIds);
-                            setDirty(false);
-                            window.scrollTo({ top: 0, behavior: "smooth" });
-                          })
-                        }
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        title="Duplicar para outra data"
-                        aria-label="Duplicar escala"
-                        onClick={() => {
-                          setDuplicate(x);
-                          setDupDate("");
-                        }}
-                      >
-                        <Copy size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!list.length && (
-            <Empty text="Nenhuma escala para os filtros selecionados." />
-          )}
-        </div>
-        {list.length > 60 && (
-          <p className="muted">Exibindo 60 registros. Refine os filtros.</p>
-        )}
-      </section>
-      {confirm && (
-        <Confirm
-          title={
-            confirm === "publish"
-              ? "Publicar esta escala?"
-              : confirm === "clear"
-                ? "Limpar seleção?"
-                : confirm === "template"
-                  ? "Carregar equipe padrão?"
-                  : "Descartar alterações não salvas?"
-          }
-          onClose={() => {
-            setConfirm("");
-            setNext(null);
-          }}
-          onConfirm={() => {
-            if (confirm === "publish") save(true);
-            else {
-              if (confirm === "clear") update([]);
-              if (confirm === "template") update(standard);
-              if (confirm === "unsaved") {
-                setDirty(false);
-                next?.();
-              }
-              setConfirm("");
-              setNext(null);
-            }
-          }}
-        >
-          {confirm === "publish"
-            ? `A nova versão com ${ids.length} profissional(is) substituirá a versão pública desta combinação de unidade, data, turno, equipe e cargo.`
-            : confirm === "clear"
-              ? "Os profissionais serão removidos apenas desta edição."
-              : confirm === "template"
-                ? "A seleção atual será substituída pelos profissionais ativos do modelo padrão."
-                : "A edição ainda não foi salva. Continuar descartará essas alterações."}
-        </Confirm>
-      )}
-      {view && (
-        <Modal title="Detalhes da escala" onClose={() => setView(null)}>
-          <div className="modalbody">
-            <Badge tone={view.status === "published" ? "green" : "amber"}>
-              {view.status === "published" ? "Publicada" : "Rascunho"} · v
-              {view.version}
-            </Badge>
-            <h3>{dateLabel(view.date)}</h3>
-            <p>
-              {shiftLabel(view.shift)} · Equipe{" "}
-              {d.teams.find((t) => t.id === view.teamId)?.name} ·{" "}
-              {d.roles.find((r) => r.id === view.roleId)?.name}
-            </p>
-            {view.professionalIds.map((id) => (
-              <p key={id}>
-                • {d.professionals.find((p) => p.id === id)?.fullName}
-              </p>
-            ))}
-            <p className="muted">Atualizada em {timeLabel(view.updatedAt)}</p>
-          </div>
-        </Modal>
-      )}
-      {duplicate && (
-        <Modal
-          title="Duplicar para outra data"
-          onClose={() => setDuplicate(null)}
-        >
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const x = { ...duplicate, date: dupDate };
-              if (key(x) === key(duplicate)) {
-                return;
-              }
-              if (d.schedules.some((s) => key(s) === key(x))) {
-                setConfirm("");
-                return;
-              }
-              if (
-                change(
-                  (next) => saveSchedule(next, s, x, false),
-                  "Cópia criada como rascunho.",
-                )
-              )
-                setDuplicate(null);
-            }}
-          >
-            <div className="modalbody">
-              <p>
-                A cópia será um rascunho independente. A escala original será
-                preservada.
-              </p>
-              <Field label="Nova data">
-                <input
-                  type="date"
-                  required
-                  value={dupDate}
-                  onChange={(e) => setDupDate(e.target.value)}
-                />
-              </Field>
-              {dupDate &&
-                d.schedules.some(
-                  (x) => key(x) === key({ ...duplicate, date: dupDate }),
-                ) && (
-                  <p className="error">
-                    Já existe uma escala nessa combinação. Escolha outra data.
-                  </p>
-                )}
-            </div>
-            <footer>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setDuplicate(null)}
-              >
-                Cancelar
-              </button>
-              <button
-                className="btn primary"
-                disabled={
-                  !dupDate ||
-                  d.schedules.some(
-                    (x) => key(x) === key({ ...duplicate, date: dupDate }),
-                  )
-                }
-              >
-                Criar rascunho
-              </button>
-            </footer>
-          </form>
-        </Modal>
-      )}
+    const unload = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
+    const timer = window.setInterval(check, 1000);
+    window.addEventListener("focus", check); document.addEventListener("visibilitychange", check);
+    window.addEventListener("beforeunload", unload);
+    return () => { clearInterval(timer); window.removeEventListener("focus", check); document.removeEventListener("visibilitychange", check); window.removeEventListener("beforeunload", unload); };
+  }, [draft.date, dirty]);
+  const guard = (fn: () => void) => dirty ? setPending(() => fn) : fn();
+  const parameter = (value: Partial<Assembly>) => guard(() => { setDraft({ ...fresh(), shift: draft.shift, teamId: draft.teamId, ...value }); setIndex(0); setSearch(""); setCopyNotice(""); });
+  const role = roles[index];
+  const ids = draft.selections[role?.id] || [];
+  const all = role ? available(d, s.activeUnitId, role.id) : [];
+  const visible = all.filter(p => p.fullName.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
+  const update = (next: string[]) => setDraft(x => ({ ...x, selections: { ...x.selections, [role.id]: next }, confirmed: { ...x.confirmed, [role.id]: false } }));
+  const move = (i: number) => { setIndex(i); setSearch(""); };
+  const ready = roles.length > 0 && roles.every(r => draft.confirmed[r.id]) && roles.some(r => draft.selections[r.id]?.length) && !!draft.teamId;
+  return <div data-dirty={dirty}>
+    <PageTitle eyebrow="PLANEJAMENTO ASSISTENCIAL · DADOS FICTÍCIOS" title="Montagem de escala" subtitle="Confirme cada cargo e publique o plantão completo ao final.">
+      <a className="btn" href={dashboardUrl} target="_blank" rel="noreferrer"><Monitor size={17} /> Abrir dashboard</a>
+    </PageTitle>
+    <div className="stats assemblystats">
+      <Stat icon={<Building2 />} label="Unidade em gestão" value={unit.name} note="Unidade fictícia de demonstração" />
+      <Stat icon={<Users />} label="Profissionais ativos" value={available(d, s.activeUnitId).length} note="Disponíveis para compor escalas" />
+      <Stat icon={<LayoutGrid />} label="Equipes padrão" value={d.teams.filter(t => t.unitId === s.activeUnitId && t.active).length} note="Modelos preservados" />
     </div>
-  );
+    {copyNotice && <p role="status" className="callout">{copyNotice}</p>}
+    <section className="panel">
+      <div className="sectionheading"><h2>Defina o plantão</h2><Badge>Etapa {roles.length ? index + 1 : 0} de {roles.length}</Badge></div>
+      <div className="filters">
+        <Field label="Unidade"><div className="readonly">{unit.name}</div></Field>
+        <Field label="Data do plantão · São Paulo"><div className="readonly">{dateLabel(draft.date)}</div></Field>
+        <Field label="Turno"><select aria-label="Turno" value={draft.shift} onChange={e => parameter({ shift: e.target.value as Shift })}><option value="day">Diurno · 07h–19h</option><option value="night">Noturno · 19h–07h</option></select></Field>
+        <Field label="Equipe"><select aria-label="Equipe" value={draft.teamId} onChange={e => parameter({ teamId: e.target.value })}><option value="" disabled>Selecione uma equipe</option>{d.teams.filter(t => t.unitId === s.activeUnitId && t.active).map(t => <option key={t.id} value={t.id}>Equipe {t.name}</option>)}</select></Field>
+      </div>
+      <div className="rolearea"><div className="rolegrid">{roles.map((r, i) => <button key={r.id} disabled={i !== index && !draft.confirmed[r.id] && i > index} aria-current={i === index ? "step" : undefined} className={"rolecard " + (i === index ? "selected " : "") + (draft.confirmed[r.id] ? "confirmed" : "")} onClick={() => move(i)}>
+        <b>{r.name}</b><span>{i === index ? "Cargo atual · " : ""}{draft.confirmed[r.id] ? (draft.selections[r.id]?.length ? `${draft.selections[r.id].length} profissionais · Confirmado` : "Nenhum profissional · Confirmado") : "Pendente"}</span>{draft.confirmed[r.id] && <Check size={20} />}
+      </button>)}</div></div>
+    </section>
+    {role ? <section className="panel peoplepanel">
+      <div className="sectionheading"><div><h2>{role.name}</h2><p>{ids.length} profissionais selecionados</p></div>
+        <button className="btn" disabled={!draft.teamId} onClick={() => {
+          const load = () => update(d.members.filter(m => m.teamId === draft.teamId && m.roleId === role.id && all.some(p => p.id === m.professionalId)).map(m => m.professionalId));
+          if (ids.length) setPending(() => load); else load();
+        }}><RotateCcw size={16} /> Carregar equipe padrão</button>
+      </div>
+      <div className="searchbox"><Search size={17} /><input aria-label="Pesquisar profissional" value={search} placeholder="Pesquisar profissional pelo nome..." onChange={e => setSearch(e.target.value)} /></div>
+      <div className="selectiontools"><button onClick={() => update([...new Set([...ids, ...visible.map(p => p.id)])])}>Selecionar todos visíveis</button><button onClick={() => update([])}>Limpar seleção</button></div>
+      <div className="peoplelist">{visible.map(p => <label key={p.id} className={"person " + (ids.includes(p.id) ? "checked" : "")}><input type="checkbox" checked={ids.includes(p.id)} onChange={() => update(ids.includes(p.id) ? ids.filter(id => id !== p.id) : [...ids, p.id])} /><span><b>{p.fullName}</b><small>{p.specialty}</small></span></label>)}{!visible.length && <Empty text="Nenhum profissional encontrado para este cargo ou pesquisa." />}</div>
+      <p className="listnote">A confirmação mantém a seleção nesta montagem. O dashboard só muda após a publicação final.</p>
+    </section> : <Empty text="Cadastre ao menos um cargo ativo para montar a escala." />}
+    <div className="savebar"><div>{roles.filter(r => draft.confirmed[r.id]).length} de {roles.length} cargos confirmados</div><div>
+      <button className="btn" onClick={() => guard(reset)}>Reiniciar montagem</button>
+      <button className="btn" disabled={index === 0} onClick={() => move(index - 1)}>Voltar</button>
+      <button className="btn" disabled={!role || !draft.teamId} onClick={() => setDraft(x => ({ ...x, confirmed: { ...x.confirmed, [role.id]: true } }))}><Check size={16} />{ids.length ? "Confirmar cargo" : "Confirmar: Nenhum profissional para este cargo"}</button>
+      {index < roles.length - 1 && <button className="btn primary" disabled={!draft.confirmed[role?.id]} onClick={() => move(index + 1)}>Próximo <ChevronRight size={16} /></button>}
+      {role && index === roles.length - 1 && <button className="btn primary" disabled={!ready} onClick={() => setPublish(true)}><Send size={16} /> Publicar escala</button>}
+    </div></div>
+    {pending && <Confirm title="Substituir a montagem ou seleção atual?" onClose={() => setPending(null)} onConfirm={() => { pending(); setPending(null); }}>As seleções afetadas serão descartadas. Deseja continuar?</Confirm>}
+    {publish && <Confirm title="Publicar escala completa?" onClose={() => setPublish(false)} onConfirm={() => {
+      if (todaySaoPaulo() !== draft.date) { reset(); toast("O dia mudou. Revise a nova montagem."); return; }
+      if (change(x => publishAssembly(x, s, draft), "Escala completa publicada. O dashboard recebeu a nova composição.")) reset();
+      else setPublish(false);
+    }}><p>{unit.name} · {dateLabel(draft.date)} · {shiftLabel(draft.shift)} · Equipe {d.teams.find(t => t.id === draft.teamId)?.name}</p><ul>{roles.map(r => <li key={r.id}>{r.name}: {draft.selections[r.id]?.length || 0} profissionais</li>)}</ul></Confirm>}
+  </div>;
 }
 function Stat({
   icon,
@@ -1870,8 +1269,14 @@ function Teams() {
   );
 }
 function HistoryPage() {
-  const { d, s, user } = useApp();
-  const [unit, setUnit] = useState("");
+  const { d, s, user, setUnit, toast } = useApp();
+  const [unit, setUnitFilter] = useState("");
+  const nav = useNavigate();
+  const [copy, setCopy] = useState<Schedule[] | null>(null);
+  const publications = Object.values(d.published.filter(x => user.role === "global_admin" ? (!unit || x.unitId === unit) : x.unitId === s.activeUnitId).reduce<Record<string, Schedule[]>>((groups, x) => {
+    const k = [x.unitId, x.date, x.shift, x.teamId].join("|");
+    (groups[k] ||= []).push(x); return groups;
+  }, {}));
   const [detail, setDetail] = useState<Data["events"][number] | null>(null);
   const events = d.events.filter((e) =>
     user.role === "global_admin"
@@ -1892,7 +1297,7 @@ function HistoryPage() {
       {user.role === "global_admin" && (
         <div className="tablefilters">
           <Field label="Unidade do evento">
-            <select value={unit} onChange={(e) => setUnit(e.target.value)}>
+            <select value={unit} onChange={(e) => setUnitFilter(e.target.value)}>
               <option value="">Todas as unidades</option>
               {d.units.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -1903,6 +1308,22 @@ function HistoryPage() {
           </Field>
         </div>
       )}
+      <section className="panel">
+        <div className="sectionheading"><h2>Publicações · Copiar escala</h2></div>
+        {publications.map(records => { const p = records[0]; return <div className="publicationrow" key={[p.unitId, p.date, p.shift, p.teamId].join("|")}>
+          <span><b>{d.units.find(u => u.id === p.unitId)?.name}</b><br />{dateLabel(p.date)} · {shiftLabel(p.shift)} · Equipe {d.teams.find(t => t.id === p.teamId)?.name} · {records.length} cargos</span>
+          <button className="btn" onClick={() => {
+            if (p.unitId !== s.activeUnitId) { setCopy(records); return; }
+            try { copyPublication(d, s, records); nav("/escala", { state: { publication: records } }); } catch (e) { toast((e as Error).message); }
+          }}><Copy size={16} /> Copiar escala</button>
+        </div>; })}
+        {!publications.length && <Empty text="Nenhuma publicação disponível." />}
+      </section>
+      {copy && <Confirm title="Trocar a unidade ativa para copiar?" onClose={() => setCopy(null)} onConfirm={() => {
+        const unitId = copy[0].unitId;
+        try { copyPublication(d, { ...s, activeUnitId: unitId }, copy); setUnit(unitId); nav("/escala", { state: { publication: copy } }); } catch (e) { toast((e as Error).message); }
+        setCopy(null);
+      }}>A publicação pertence a {d.units.find(u => u.id === copy[0].unitId)?.name}. Confirme a troca explícita da unidade ativa. A origem será preservada.</Confirm>}
       <section className="panel">
         <div className="sectionheading">
           <h2>Linha do tempo</h2>

@@ -19,38 +19,42 @@ Para uma instalação reproduzível com o lockfile: `npm ci`. O servidor de dese
 
 ```sh
 npm run build       # TypeScript e bundle de produção
-npm test            # 11 testes de domínio e dashboard
+npm test            # 19 testes de domínio e dashboard
 npm run preview     # servir o build localmente
 ```
 
 ## Experiência
 
 - `/`: entrada simulada como administrador geral ou gestor de CER BARRA.
-- `/escala`: edição manual por unidade, data, turno, equipe e cargo; busca, seleção, equipe padrão, rascunho, publicação confirmada, consulta e duplicação para outra data.
+- `/escala`: montagem guiada por cargo no dia atual de São Paulo, com confirmação de etapas e publicação conjunta ao final.
 - `/cadastros`: criar, editar, desativar e reativar profissionais, com vínculos por unidade separados do cadastro.
 - `/equipes`: criar e editar modelos fixos por cargo, com turno opcional.
-- `/historico`: eventos locais com antes/depois; administrador vê e filtra todas as unidades.
+- `/historico`: publicações agrupadas por unidade/data/turno/equipe com opção Copiar escala, além dos eventos locais com antes/depois; administrador vê e filtra todas as unidades.
 - `/administracao`: unidades e associações de acesso fictícias, restritas ao perfil global na simulação.
 - `/dashboard`: layout independente para apresentação/TV, sem menu administrativo, com filtros e **apenas publicações**. Pessoas únicas são contadas por cargo/turno; nomes listados por equipe. Escala não significa presença confirmada.
 - Demais caminhos: página 404.
 
 Os nomes contraditórios “Unidade Modelo Norte/Sul” do cenário foram resolvidos em favor do seed explícito: UPA ROCHA MIRANDA, CER BARRA, UPA CIDADE DE DEUS e UPA SEPETIBA. Há 72 profissionais fictícios, seis cargos e quatro equipes em cada unidade. A data inicial previsível é **06/11/2026**; existe um rascunho adicional em 07/11/2026.
 
-## Roteiro rápido
+## Montagem guiada e cópia pelo Histórico
 
-1. Entre como gestor. O cabeçalho mostra CER BARRA sem seletor de unidade.
-2. Em 06/11/2026, diurno, equipe A, Médico, carregue o modelo e confirme. Pesquise um nome, remova-o e selecione outro profissional.
-3. Abra o dashboard em outra aba. Salve o rascunho: a publicação anterior permanece. Publique e confirme: o painel recebe a nova versão (sincronização por `storage` entre abas do mesmo navegador/origem).
-4. Cadastre uma pessoa fictícia e desative-a. Verifique os eventos em Histórico. As escalas anteriores continuam existindo.
-5. Edite um modelo em Equipes: nenhuma ocorrência já salva é alterada.
-6. Use o ícone de saída no topo para alternar perfil. Entre como administrador, alterne a unidade e explore administração/histórico global.
-7. “Restaurar demonstração” retorna ao seed, remove a sessão e volta à entrada.
+1. Entre como gestor ou administrador e defina unidade, turno e equipe. A data é somente leitura e sempre corresponde ao dia atual em `America/Sao_Paulo`.
+2. No primeiro cargo ativo, pesquise e marque profissionais ou carregue a equipe padrão desse cargo. O modelo fixo não é alterado.
+3. Use **Confirmar cargo**. O cartão fica verde e apresenta um ícone de confirmação. Sem seleção, confirme explicitamente **Nenhum profissional para este cargo**. Use **Próximo** e **Voltar** para navegar preservando as seleções; cartões confirmados permitem revisão. Alterar a seleção remove a confirmação.
+4. Somente a última etapa apresenta **Publicar escala**. Todos os cargos precisam estar confirmados e o conjunto deve ter pelo menos uma pessoa. Confira o resumo de unidade, data, turno, equipe e quantidades por cargo e confirme a publicação final.
+5. Confirmar cargos não grava rascunhos nem publicações. A publicação conjunta valida tudo em uma cópia isolada antes de substituir o estado: falhas preservam os dados e o dashboard. Cargos vazios substituem nomes anteriormente publicados na mesma chave. Versões e eventos de auditoria são preservados. O fluxo reinicia após o sucesso.
+6. Em **Histórico**, use **Copiar escala** em uma publicação agrupada. A cópia abre uma montagem para hoje, sem publicar e com todos os cargos pendentes de confirmação. Publicações antigas de um único cargo preenchem apenas esse cargo. Nomes inativos, sem vínculo ativo ou de cargo incompatível são descartados e informados. Equipes inativas impedem a cópia. Origem e modelos são preservados.
+7. Para copiar uma publicação de outra unidade, o administrador deve confirmar explicitamente a troca da unidade ativa. Gestores só acessam a própria unidade.
+
+Trocar unidade, turno ou equipe durante uma montagem solicita confirmação de descarte. A tela verifica a data a cada segundo e ao receber foco ou retornar de uma aba suspensa; se o dia mudar, avisa e reinicia a montagem. O domínio também rejeita datas diferentes do dia atual, inclusive na função legada `saveSchedule`. O dashboard mantém sua regra própria: durante a madrugada, o noturno pertence à data em que começou.
+
+O indicador “Escalas publicadas”, a seção “Escalas existentes” e o botão “Salvar rascunho” foram removidos da montagem. Registros e rascunhos existentes permanecem armazenados. “Restaurar demonstração” continua removendo os dados locais e retornando ao seed.
 
 ## Arquitetura e regras
 
 - `src/models.ts`: modelos TypeScript.
 - `src/seed.ts`: seed determinístico sem chamadas externas.
-- `src/domain.ts`: operações centralizadas, verificação do escopo demonstrativo e registro de auditoria.
+- `src/domain.ts`: operações centralizadas, data de São Paulo, publicação conjunta atômica no estado local, cópia validada, escopo demonstrativo e auditoria.
 - `src/main.tsx`: componentes, rotas, formulários, modais e estado React.
 - `src/style.css`: identidade responsiva, Tailwind CSS e estilos de componentes; ícones lucide-react.
 - `src/domain.test.ts`: regressões sobre publicação, isolamento por unidade, histórico, modelos, vínculos e administração.
@@ -98,7 +102,7 @@ O dashboard externo é independente das telas administrativas, que foram preserv
 
 A interface `DashboardRepository` permite substituir o carregamento local por uma API sem reescrever os cartões. Na integração futura, esse endpoint deve entregar somente publicações autorizadas para a unidade; Supabase/PostgreSQL/RLS e autenticação continuam fora do MVP. O painel de demonstração deve ser removido ou desabilitado na versão de produção.
 
-`npm test` executa 11 testes, incluindo viradas exatas, madrugada/ano/mês, cargos, unidades, indicadores, deduplicação, rascunhos, estados vazios e as regressões administrativas. A interface foi verificada com Chromium em desktop, tablet, celular e modo TV, incluindo tela cheia, relógio automático, retorno à aba e estados de falha.
+`npm test` executa 19 testes, incluindo viradas exatas, madrugada/ano/mês, cargos, unidades, indicadores, deduplicação, rascunhos, estados vazios e as regressões administrativas. A interface foi verificada com Chromium em desktop, tablet, celular e modo TV, incluindo tela cheia, relógio automático, retorno à aba e estados de falha.
 
 ## Dashboard em slides por função
 
@@ -129,3 +133,8 @@ O navegador exige uma interação para entrar em tela cheia nativa; o botão con
 ### Controles de TV e confirmação de ponto
 
 As instruções atualizadas para quiosque Windows, arquivo da logo e simulação de ponto estão em [docs/tv-e-ponto.md](docs/tv-e-ponto.md). A simulação de ponto é habilitada explicitamente no painel exclusivo de desenvolvimento fora do Modo TV; não aparece na produção. O serviço separado valida unidade, identificador, plantão e janela de horário. `npm test` inclui as regressões de ponto facial. `vercel.json` permite abrir rotas diretamente na publicação Vercel.
+
+### Validação da montagem guiada
+
+`npm test` cobre data/fuso, rejeição de outras datas, publicação conjunta, cargos vazios, ausência de alterações parciais, versões, duplicatas, cópia com filtragem e isolamento por unidade, além das regressões existentes de cadastro e dashboard. `npm run build` valida TypeScript e o bundle de produção. O fluxo no Chromium foi verificado com confirmação/revisão, navegação, publicação final, cópia, cancelamento de descarte, retorno após mudança de dia e visualização móvel.
+
