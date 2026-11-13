@@ -260,6 +260,49 @@ export interface Assembly {
   selections: Record<string, string[]>;
   confirmed: Record<string, boolean>;
 }
+
+export function assemblyContext(input: Assembly) {
+  const regime = input.workRegime || "12x36";
+  return JSON.stringify([input.unitId, input.date, input.shift, input.teamId, regime,
+    regime === "diarist" ? input.startTime || "08:00" : null]);
+}
+
+export function resumeAssembly(d: Data, s: Session, input: Assembly): Assembly {
+  scope(d, s, input.unitId);
+  const selections: Assembly["selections"] = {};
+  const confirmed: Assembly["confirmed"] = {};
+  const saved = d.assemblyConfirmations?.[assemblyContext(input)];
+  for (const [roleId, ids] of Object.entries(saved || {})) {
+    if (!d.roles.some(r => r.id === roleId && r.active)) continue;
+    const allowed = new Set(available(d, input.unitId, roleId).map(p => p.id));
+    selections[roleId] = ids.filter(id => allowed.has(id));
+    confirmed[roleId] = selections[roleId].length === ids.length;
+  }
+  return { ...input, selections, confirmed };
+}
+
+export function confirmAssemblyRole(d: Data, s: Session, input: Assembly, roleId: string) {
+  scope(d, s, input.unitId);
+  if (input.date !== todaySaoPaulo()) throw Error("A montagem deve usar o dia atual de São Paulo.");
+  if (!d.teams.some(t => t.id === input.teamId && t.unitId === input.unitId && t.active))
+    throw Error("Equipe inválida.");
+  if (!d.roles.some(r => r.id === roleId && r.active)) throw Error("Cargo inválido.");
+  validateRegime(input.workRegime, input.shift, input.startTime);
+  const ids = [...new Set(input.selections[roleId] || [])];
+  const allowed = new Set(available(d, input.unitId, roleId).map(p => p.id));
+  if (ids.some(id => !allowed.has(id))) throw Error("Profissional indisponível para esta unidade e cargo.");
+  const confirmations = d.assemblyConfirmations ??= {};
+  for (const context of Object.keys(confirmations)) {
+    if (JSON.parse(context)[1] !== input.date) delete confirmations[context];
+  }
+  (confirmations[assemblyContext(input)] ??= {})[roleId] = ids;
+}
+
+export function clearAssemblyConfirmations(d: Data, s: Session, input: Assembly) {
+  scope(d, s, input.unitId);
+  if (d.assemblyConfirmations) delete d.assemblyConfirmations[assemblyContext(input)];
+}
+
 export function publishAssembly(d: Data, s: Session, input: Assembly) {
   scope(d, s, input.unitId);
   if (input.date !== todaySaoPaulo()) throw Error("A montagem deve usar o dia atual de São Paulo.");

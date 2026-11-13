@@ -29,6 +29,7 @@ import {
   Building2,
   ArrowUpRight,
   ChevronRight,
+  ChevronDown,
   Search,
   Plus,
   Check,
@@ -67,6 +68,9 @@ import {
   key,
   available,
   publishAssembly,
+  resumeAssembly,
+  confirmAssemblyRole,
+  clearAssemblyConfirmations,
   copyPublication,
   todaySaoPaulo,
   type Assembly,
@@ -654,28 +658,56 @@ function SchedulePage() {
   const roles = d.roles.filter(r => r.active);
   const fresh = (): Assembly => ({ unitId: s.activeUnitId, date: todaySaoPaulo(), shift: "day", workRegime: "12x36", startTime: "08:00",
     teamId: d.teams.find(t => t.unitId === s.activeUnitId && t.active)?.id || "", selections: {}, confirmed: {} });
-  const [draft, setDraft] = useState<Assembly>(fresh);
-  const [index, setIndex] = useState(0);
+  const contextStorageKey = JSON.stringify(["rio-assembly-context", s.userId, s.activeUnitId]);
+  const [draft, setDraft] = useState(() => {
+    const current = fresh();
+    try {
+      const context = JSON.parse(sessionStorage.getItem(contextStorageKey) || "null");
+      if (context?.date === current.date && d.teams.some(t => t.id === context.teamId && t.unitId === current.unitId && t.active)) {
+        const { shift, teamId, workRegime, startTime } = context;
+        return resumeAssembly(d, s, { ...current, shift, teamId, workRegime, startTime });
+      }
+    } catch {}
+    return resumeAssembly(d, s, current);
+  });
+  const [roleId, setRoleId] = useState("");
+  const [rolesOpen, setRolesOpen] = useState(false);
+  const roleTrigger = useRef<HTMLButtonElement>(null);
   const [search, setSearch] = useState("");
   const [publish, setPublish] = useState(false);
   const [pending, setPending] = useState<(() => void) | null>(null);
   const [copyNotice, setCopyNotice] = useState("");
-  const dirty = Object.keys(draft.selections).length > 0 || Object.keys(draft.confirmed).length > 0;
-  const reset = () => { setDraft(fresh()); setIndex(0); setSearch(""); setPublish(false); setPending(null); setCopyNotice(""); };
+  const hasChanges = (id: string) => Object.hasOwn(draft.selections, id) && !draft.confirmed[id];
+  const dirty = Object.keys(draft.selections).some(hasChanges);
+  const openAssembly = (next: Assembly) => {
+    setDraft(next);
+    setRoleId("");
+    setRolesOpen(false);
+    setSearch("");
+    setPublish(false);
+    setPending(null);
+    setCopyNotice("");
+  };
+  const { date, shift, teamId, workRegime, startTime } = draft;
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(contextStorageKey, JSON.stringify({ date, shift, teamId, workRegime, startTime }));
+    } catch {}
+  }, [contextStorageKey, date, shift, teamId, workRegime, startTime]);
   useEffect(() => {
     const source = (location.state as { publication?: Schedule[] } | null)?.publication;
     if (!source) return;
     window.history.replaceState({ ...window.history.state, usr: null }, "");
     try {
       const result = copyPublication(d, s, source);
-      setDraft(result.assembly); setIndex(0);
+      openAssembly(result.assembly);
       setCopyNotice(result.ignored.length ? "Nomes desconsiderados: " + result.ignored.join(", ") : "Publicação copiada. Confirme todos os cargos antes de publicar.");
     } catch (e) { toast((e as Error).message); }
   }, [location.key]);
   useEffect(() => {
     const check = () => {
       if (todaySaoPaulo() !== draft.date) {
-        reset(); toast("O dia mudou em São Paulo. A montagem foi reiniciada para o dia atual.");
+        openAssembly(resumeAssembly(d, s, fresh())); toast("O dia mudou em São Paulo. A montagem foi reiniciada para o dia atual.");
       }
     };
     const unload = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
@@ -683,15 +715,31 @@ function SchedulePage() {
     window.addEventListener("focus", check); document.addEventListener("visibilitychange", check);
     window.addEventListener("beforeunload", unload);
     return () => { clearInterval(timer); window.removeEventListener("focus", check); document.removeEventListener("visibilitychange", check); window.removeEventListener("beforeunload", unload); };
-  }, [draft.date, dirty]);
+  }, [d, s, draft.date, dirty]);
   const guard = (fn: () => void) => dirty ? setPending(() => fn) : fn();
-  const parameter = (value: Partial<Assembly>) => guard(() => { setDraft({ ...fresh(), shift: draft.shift, teamId: draft.teamId, workRegime: draft.workRegime, startTime: draft.startTime, ...value }); setIndex(0); setSearch(""); setCopyNotice(""); });
-  const role = roles[index];
+  const parameter = (value: Partial<Assembly>) => guard(() => openAssembly(resumeAssembly(d, s, { ...draft, ...value })));
+  const role = roles.find(r => r.id === roleId) || roles[0];
   const ids = draft.selections[role?.id] || [];
   const all = role ? available(d, s.activeUnitId, role.id) : [];
   const visible = all.filter(p => p.fullName.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
-  const update = (next: string[]) => setDraft(x => ({ ...x, selections: { ...x.selections, [role.id]: next }, confirmed: { ...x.confirmed, [role.id]: false } }));
-  const move = (i: number) => { setIndex(i); setSearch(""); };
+  const update = (next: string[]) => {
+    if (next.length === ids.length && next.every(id => ids.includes(id))) return;
+    setDraft(x => ({ ...x, selections: { ...x.selections, [role.id]: next }, confirmed: { ...x.confirmed, [role.id]: false } }));
+  };
+  const confirmRole = () => {
+    if (change(x => confirmAssemblyRole(x, s, draft, role.id), "Composição do cargo salva.")) {
+      setDraft(x => ({ ...x, confirmed: { ...x.confirmed, [role.id]: true } }));
+    }
+  };
+  const reset = () => {
+    if (!change(x => clearAssemblyConfirmations(x, s, draft), "Montagem reiniciada.")) return;
+    openAssembly({ ...draft, selections: {}, confirmed: {} });
+  };
+  const roleLabel = (r: (typeof roles)[number]) => <>
+    <span>{r.name}</span>
+    {draft.confirmed[r.id] ? <span className="role-complete"><Check size={16} aria-hidden="true" /> Concluído</span>
+      : hasChanges(r.id) && <span className="role-unsaved">Alterações não salvas</span>}
+  </>;
   const ready = roles.length > 0 && roles.every(r => draft.confirmed[r.id]) && roles.some(r => draft.selections[r.id]?.length) && !!draft.teamId;
   return <div data-dirty={dirty}>
     <PageTitle eyebrow="PLANEJAMENTO ASSISTENCIAL · DADOS FICTÍCIOS" title="Montagem de escala" subtitle="Confirme cada cargo e publique o plantão completo ao final.">
@@ -703,8 +751,8 @@ function SchedulePage() {
       <Stat icon={<LayoutGrid />} label="Equipes padrão" value={d.teams.filter(t => t.unitId === s.activeUnitId && t.active).length} note="Modelos preservados" />
     </div>
     {copyNotice && <p role="status" className="callout">{copyNotice}</p>}
-    <section className="panel">
-      <div className="sectionheading"><h2>Defina o plantão</h2><Badge>Etapa {roles.length ? index + 1 : 0} de {roles.length}</Badge></div>
+    <section className="panel assembly-context">
+      <div className="sectionheading"><h2>Defina o plantão</h2></div>
       <div className="filters">
         <Field label="Unidade"><div className="readonly">{unit.name}</div></Field>
         <Field label="Data do plantão · São Paulo"><div className="readonly">{dateLabel(draft.date)}</div></Field>
@@ -714,9 +762,34 @@ function SchedulePage() {
         <Field label="Equipe"><select aria-label="Equipe" value={draft.teamId} onChange={e => parameter({ teamId: e.target.value })}><option value="" disabled>Selecione uma equipe</option>{d.teams.filter(t => t.unitId === s.activeUnitId && t.active).map(t => <option key={t.id} value={t.id}>Equipe {t.name}</option>)}</select></Field>
       </div>
       <p className="listnote">{regimeLabel(draft.workRegime)}{draft.workRegime === "diarist" ? ` · início ${draft.startTime}, duração 8h` : draft.workRegime === "24h" ? " · 07h até 07h do dia seguinte; publica os dois turnos juntos" : " · seleciona o plantão de 12h; não gera recorrência automática"}</p>
-      <div className="rolearea"><div className="rolegrid">{roles.map((r, i) => <button key={r.id} disabled={i !== index && !draft.confirmed[r.id] && i > index} aria-current={i === index ? "step" : undefined} className={"rolecard " + (i === index ? "selected " : "") + (draft.confirmed[r.id] ? "confirmed" : "")} onClick={() => move(i)}>
-        <b>{r.name}</b><span>{i === index ? "Cargo atual · " : ""}{draft.confirmed[r.id] ? (draft.selections[r.id]?.length ? `${draft.selections[r.id].length} profissionais · Confirmado` : "Nenhum profissional · Confirmado") : "Pendente"}</span>{draft.confirmed[r.id] && <Check size={20} />}
-      </button>)}</div></div>
+      {role && <div className="rolearea">
+        <div className="role-picker" onBlur={e => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setRolesOpen(false);
+        }} onKeyDown={e => {
+          if (e.key === "Escape" && rolesOpen) {
+            setRolesOpen(false);
+            roleTrigger.current?.focus();
+          }
+        }}>
+          <span id="assembly-role-label">Cargo</span>
+          <button type="button" className="role-trigger" ref={roleTrigger} aria-expanded={rolesOpen}
+            aria-controls={rolesOpen ? "assembly-roles" : undefined} aria-labelledby="assembly-role-label assembly-current-role"
+            onClick={() => setRolesOpen(!rolesOpen)}>
+            <span id="assembly-current-role" className="role-label">{roleLabel(role)}</span>
+            <ChevronDown size={17} aria-hidden="true" />
+          </button>
+          {rolesOpen && <ul id="assembly-roles" className="role-options" aria-labelledby="assembly-role-label">
+            {roles.map(r => <li key={r.id}>
+              <button type="button" aria-current={r.id === role.id ? "true" : undefined} onClick={() => {
+                setRoleId(r.id);
+                setSearch("");
+                setRolesOpen(false);
+                roleTrigger.current?.focus();
+              }}>{roleLabel(r)}</button>
+            </li>)}
+          </ul>}
+        </div>
+      </div>}
     </section>
     {role ? <section className="panel peoplepanel">
       <div className="sectionheading"><div><h2>{role.name}</h2><p>{ids.length} profissionais selecionados</p></div>
@@ -728,19 +801,25 @@ function SchedulePage() {
       <div className="searchbox"><Search size={17} /><input aria-label="Pesquisar profissional" value={search} placeholder="Pesquisar profissional pelo nome..." onChange={e => setSearch(e.target.value)} /></div>
       <div className="selectiontools"><button onClick={() => update([...new Set([...ids, ...visible.map(p => p.id)])])}>Selecionar todos visíveis</button><button onClick={() => update([])}>Limpar seleção</button></div>
       <div className="peoplelist">{visible.map(p => <label key={p.id} className={"person " + (ids.includes(p.id) ? "checked" : "")}><input type="checkbox" checked={ids.includes(p.id)} onChange={() => update(ids.includes(p.id) ? ids.filter(id => id !== p.id) : [...ids, p.id])} /><span><b>{p.fullName}</b></span></label>)}{!visible.length && <Empty text="Nenhum profissional encontrado para este cargo ou pesquisa." />}</div>
-      <p className="listnote">A confirmação mantém a seleção nesta montagem. O dashboard só muda após a publicação final.</p>
+      <p className="listnote">Confirmar cargo salva a composição. O dashboard só muda após a publicação final.</p>
     </section> : <Empty text="Cadastre ao menos um cargo ativo para montar a escala." />}
     <div className="savebar"><div>{roles.filter(r => draft.confirmed[r.id]).length} de {roles.length} cargos confirmados</div><div>
-      <button className="btn" onClick={() => guard(reset)}>Reiniciar montagem</button>
-      <button className="btn" disabled={index === 0} onClick={() => move(index - 1)}>Voltar</button>
-      <button className="btn" disabled={!role || !draft.teamId} onClick={() => setDraft(x => ({ ...x, confirmed: { ...x.confirmed, [role.id]: true } }))}><Check size={16} />{ids.length ? "Confirmar cargo" : "Confirmar: Nenhum profissional para este cargo"}</button>
-      {index < roles.length - 1 && <button className="btn primary" disabled={!draft.confirmed[role?.id]} onClick={() => move(index + 1)}>Próximo <ChevronRight size={16} /></button>}
-      {role && index === roles.length - 1 && <button className="btn primary" disabled={!ready} onClick={() => setPublish(true)}><Send size={16} /> Publicar escala</button>}
+      <button className="btn" onClick={() => {
+        if (Object.keys(draft.selections).length || Object.keys(draft.confirmed).length) setPending(() => reset);
+        else reset();
+      }}>Reiniciar montagem</button>
+      <button className="btn" disabled={!role || !draft.teamId || !!draft.confirmed[role.id]} onClick={confirmRole}><Check size={16} />{ids.length ? "Confirmar cargo" : "Confirmar: Nenhum profissional para este cargo"}</button>
+      {role && <button className="btn primary" disabled={!ready} onClick={() => setPublish(true)}><Send size={16} /> Publicar escala</button>}
     </div></div>
     {pending && <Confirm title="Substituir a montagem ou seleção atual?" onClose={() => setPending(null)} onConfirm={() => { pending(); setPending(null); }}>As seleções afetadas serão descartadas. Deseja continuar?</Confirm>}
     {publish && <Confirm title="Publicar escala completa?" onClose={() => setPublish(false)} onConfirm={() => {
-      if (todaySaoPaulo() !== draft.date) { reset(); toast("O dia mudou. Revise a nova montagem."); return; }
-      if (change(x => publishAssembly(x, s, draft), "Escala completa publicada. O dashboard recebeu a nova composição.")) reset();
+      if (todaySaoPaulo() !== draft.date) { openAssembly(resumeAssembly(d, s, fresh())); toast("O dia mudou. Revise a nova montagem."); return; }
+      let next = fresh();
+      if (change(x => {
+        publishAssembly(x, s, draft);
+        clearAssemblyConfirmations(x, s, draft);
+        next = resumeAssembly(x, s, next);
+      }, "Escala completa publicada. O dashboard recebeu a nova composição.")) openAssembly(next);
       else setPublish(false);
     }}><p>{unit.name} · {dateLabel(draft.date)} · {draft.workRegime === "24h" ? "Diurno e noturno" : shiftLabel(draft.shift)} · {regimeLabel(draft.workRegime)}{draft.workRegime === "diarist" ? ` · ${draft.startTime}, 8h` : ""} · Equipe {d.teams.find(t => t.id === draft.teamId)?.name}</p><ul>{roles.map(r => <li key={r.id}>{r.name}: {draft.selections[r.id]?.length || 0} profissionais</li>)}</ul></Confirm>}
   </div>;
