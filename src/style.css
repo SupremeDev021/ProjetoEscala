@@ -288,38 +288,6 @@ button:hover:not(:disabled) {
 .sidebar nav a:hover {
   background: #ffffff0c;
 }
-.sidebarbottom {
-  margin-top: auto;
-  padding-top: 40px;
-}
-.dashboardlink {
-  background: #ffffff09;
-  border: 1px solid #ffffff13;
-  border-radius: 8px;
-  padding: 17px 13px;
-}
-.dashboardlink > svg {
-  color: #63cce6;
-  margin-bottom: 12px;
-}
-.dashboardlink b {
-  display: block;
-  color: #edf8fd;
-  font-size: 12px;
-}
-.dashboardlink p {
-  font-size: 10px;
-  color: #95b8cf;
-  line-height: 1.7;
-  margin: 7px 0 14px;
-}
-.dashboardlink a {
-  font-size: 11px;
-  color: #bde9f8;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
 .restore {
   display: flex;
   align-items: center;
@@ -330,13 +298,6 @@ button:hover:not(:disabled) {
 }
 .sidebar .restore {
   color: #97bdd2;
-}
-.sidebarbottom > small {
-  font-size: 8px;
-  color: #7ea7bf;
-  display: block;
-  text-align: center;
-  line-height: 1.7;
 }
 .workspace {
   margin-left: 235px;
@@ -1689,9 +1650,6 @@ dialog footer {
   .sidebar .demo-label {
     margin-left: 38px;
   }
-  .dashboardlink {
-    padding: 12px;
-  }
   .stats {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -2811,15 +2769,12 @@ td > svg {
     margin-left: 68px;
     width: calc(100% - 68px);
   }
-  .sidebar-collapsed .sidebar :is(.sidebar-brand > span, nav a > span, .nav-chevron, .dashboardlink > :not(a), .dashboardlink a span) {
+  .sidebar-collapsed .sidebar :is(.sidebar-brand > span, nav a > span, .nav-chevron) {
     display: none;
   }
-  .sidebar-collapsed .sidebar :is(nav a, .brand, .dashboardlink a) {
+  .sidebar-collapsed .sidebar :is(nav a, .brand) {
     justify-content: center;
     padding-inline: 0;
-  }
-  .sidebar-collapsed .sidebar .dashboardlink {
-    padding: 6px;
   }
 }
 .sidebar-brand {

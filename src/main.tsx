@@ -1,7 +1,7 @@
 import { IntegrationPage } from "./components/IntegrationPage";
 import { ensureRoleCatalog } from "./imports/cbo";
 import { regimeLabel, validateRegime, workAssignment, workRegimes } from "./services/workRegimes";
-import logo from "../logors.png";
+import logo from "../logorsbranco.png";
 import { authorizedUnits, resolveLocalSession, startLocalSession } from "./services/localLogin";
 import React, {
   useState,
@@ -28,7 +28,6 @@ import {
   LayoutGrid,
   History,
   Building2,
-  ArrowUpRight,
   ChevronRight,
   ChevronDown,
   ChevronLeft,
@@ -409,16 +408,6 @@ function Layout() {
               </NavLink>
             ))}
         </nav>
-        <div className="sidebarbottom">
-          <div className="dashboardlink">
-            <Monitor size={23} />
-            <b>Escalas em tempo real</b>
-            <p>Veja as versões publicadas em um painel independente.</p>
-            <a href={dashboardUrl} target="_blank" rel="noreferrer" aria-label="Abrir dashboard" title="Abrir dashboard">
-              <span>Abrir dashboard</span> <ArrowUpRight size={16} />
-            </a>
-          </div>
-        </div>
       </aside>
       <div className="workspace">
         <header className="topbar">
