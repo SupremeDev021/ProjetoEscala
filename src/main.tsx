@@ -664,9 +664,13 @@ function SchedulePage() {
     setTeamPicker(null);
   };
   const confirmRole = () => {
-    if (change(x => confirmAssemblyRole(x, s, draft, role.id), "Composição do cargo salva.")) {
-      setDraft(x => ({ ...x, confirmed: { ...x.confirmed, [role.id]: true } }));
-    }
+    const nextRole = roles[roleIndex + 1];
+    const confirmed = { ...draft.confirmed, [role.id]: true };
+    const completed = !nextRole && roles.every(r => confirmed[r.id]);
+    if (!change(x => confirmAssemblyRole(x, s, draft, role.id),
+      completed ? "Todos os cargos foram confirmados" : "Composição do cargo salva.")) return;
+    setDraft(x => ({ ...x, confirmed }));
+    if (nextRole) selectRole(nextRole.id);
   };
   const reset = () => {
     if (!change(x => clearAssemblyConfirmations(x, s, draft), "Montagem reiniciada.")) return;
