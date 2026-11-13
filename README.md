@@ -26,7 +26,7 @@ npm run preview     # servir o build localmente
 ## Experiência
 
 - `/`: entrada simulada como administrador geral ou gestor de CER BARRA.
-- `/escala`: montagem guiada por cargo no dia atual de São Paulo, com confirmação de etapas e publicação conjunta ao final.
+- `/escala`: montagem por cargo no dia atual de São Paulo, com seleção em qualquer ordem e publicação conjunta ao final.
 - `/cadastros`: criar, editar, desativar e reativar profissionais, com vínculos por unidade separados do cadastro.
 - `/equipes`: criar e editar modelos fixos por cargo, com turno opcional.
 - `/historico`: publicações agrupadas por unidade/data/turno/equipe com opção Copiar escala, além dos eventos locais com antes/depois; administrador vê e filtra todas as unidades.
@@ -36,17 +36,17 @@ npm run preview     # servir o build localmente
 
 Os nomes contraditórios “Unidade Modelo Norte/Sul” do cenário foram resolvidos em favor do seed explícito: UPA ROCHA MIRANDA, CER BARRA, UPA CIDADE DE DEUS e UPA SEPETIBA. Há 72 profissionais fictícios, seis cargos e quatro equipes em cada unidade. A data inicial previsível é **06/11/2026**; existe um rascunho adicional em 07/11/2026.
 
-## Montagem guiada e cópia pelo Histórico
+## Montagem por cargo e cópia pelo Histórico
 
 1. Entre como gestor ou administrador e defina unidade, turno e equipe. A data é somente leitura e sempre corresponde ao dia atual em `America/Sao_Paulo`.
-2. No primeiro cargo ativo, pesquise e marque profissionais ou carregue a equipe padrão desse cargo. O modelo fixo não é alterado.
-3. Use **Confirmar cargo**. O cartão fica verde e apresenta um ícone de confirmação. Sem seleção, confirme explicitamente **Nenhum profissional para este cargo**. Use **Próximo** e **Voltar** para navegar preservando as seleções; cartões confirmados permitem revisão. Alterar a seleção remove a confirmação.
-4. Somente a última etapa apresenta **Publicar escala**. Todos os cargos precisam estar confirmados e o conjunto deve ter pelo menos uma pessoa. Confira o resumo de unidade, data, turno, equipe e quantidades por cargo e confirme a publicação final.
-5. Confirmar cargos não grava rascunhos nem publicações. A publicação conjunta valida tudo em uma cópia isolada antes de substituir o estado: falhas preservam os dados e o dashboard. Cargos vazios substituem nomes anteriormente publicados na mesma chave. Versões e eventos de auditoria são preservados. O fluxo reinicia após o sucesso.
+2. Selecione qualquer cargo na lista, pesquise e marque profissionais ou carregue a equipe padrão desse cargo. O modelo fixo é preservado.
+3. Use **Confirmar cargo** para salvar a composição no navegador. A lista e o seletor exibem um check verde com o texto **Concluído**. Sem seleção, confirme explicitamente **Nenhum profissional para este cargo**. Trocar de cargo preserva as edições em andamento. Ao editar um cargo confirmado, o seletor mostra **Alterações não salvas** até a próxima confirmação.
+4. **Publicar escala** fica disponível quando todos os cargos estão confirmados e há pelo menos uma pessoa. Confira o resumo de unidade, data, turno, equipe e quantidades por cargo e confirme a publicação final.
+5. A montagem restaura as composições confirmadas para a mesma unidade, data, plantão, jornada e equipe. A publicação conjunta valida tudo em uma cópia isolada antes de substituir o estado. Cargos vazios substituem nomes anteriormente publicados na mesma chave. Versões e eventos de auditoria são preservados. O fluxo reinicia e limpa as confirmações daquela montagem após o sucesso.
 6. Em **Histórico**, use **Copiar escala** em uma publicação agrupada. A cópia abre uma montagem para hoje, sem publicar e com todos os cargos pendentes de confirmação. Publicações antigas de um único cargo preenchem apenas esse cargo. Nomes inativos, sem vínculo ativo ou de cargo incompatível são descartados e informados. Equipes inativas impedem a cópia. Origem e modelos são preservados.
 7. Para copiar uma publicação de outra unidade, o administrador deve confirmar explicitamente a troca da unidade ativa. Gestores só acessam a própria unidade.
 
-Trocar unidade, turno ou equipe durante uma montagem solicita confirmação de descarte. A tela verifica a data a cada segundo e ao receber foco ou retornar de uma aba suspensa; se o dia mudar, avisa e reinicia a montagem. O domínio também rejeita datas diferentes do dia atual, inclusive na função legada `saveSchedule`. O dashboard mantém sua regra própria: durante a madrugada, o noturno pertence à data em que começou.
+Trocar unidade, turno ou equipe com edições não salvas solicita confirmação de descarte. A tela verifica a data a cada segundo e ao receber foco ou retornar de uma aba suspensa. Quando o dia muda, a tela avisa e abre a montagem da nova data. O domínio também rejeita datas diferentes do dia atual, inclusive na função legada `saveSchedule`. No dashboard, durante a madrugada, o noturno pertence à data em que começou.
 
 O indicador “Escalas publicadas”, a seção “Escalas existentes” e o botão “Salvar rascunho” foram removidos da montagem. Registros e rascunhos existentes permanecem armazenados. “Restaurar demonstração” continua removendo os dados locais e retornando ao seed.
 
@@ -134,7 +134,7 @@ O navegador exige uma interação para entrar em tela cheia nativa; o botão con
 
 As instruções atualizadas para quiosque Windows, arquivo da logo e simulação de ponto estão em [docs/tv-e-ponto.md](docs/tv-e-ponto.md). A simulação de ponto é habilitada explicitamente no painel exclusivo de desenvolvimento fora do Modo TV; não aparece na produção. O serviço separado valida unidade, identificador, plantão e janela de horário. `npm test` inclui as regressões de ponto facial. `vercel.json` permite abrir rotas diretamente na publicação Vercel.
 
-### Validação da montagem guiada
+### Validação da montagem
 
 `npm test` cobre data/fuso, rejeição de outras datas, publicação conjunta, cargos vazios, ausência de alterações parciais, versões, duplicatas, cópia com filtragem e isolamento por unidade, além das regressões existentes de cadastro e dashboard. `npm run build` valida TypeScript e o bundle de produção. O fluxo no Chromium foi verificado com confirmação/revisão, navegação, publicação final, cópia, cancelamento de descarte, retorno após mudança de dia e visualização móvel.
 

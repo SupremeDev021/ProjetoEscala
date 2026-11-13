@@ -14,6 +14,9 @@ import {
   todaySaoPaulo,
   publishAssembly,
   copyPublication,
+  confirmAssemblyRole,
+  resumeAssembly,
+  clearAssemblyConfirmations,
   type Assembly,
 } from "./domain";
 function seed() {
@@ -22,6 +25,39 @@ function seed() {
   return d;
 }
 const manager = { userId: "gestor", activeUnitId: "u1" };
+test("confirmações restauram seleções por contexto sem alterar a publicação", () => {
+  const d = seed();
+  const professionalId = available(d, "u1", "r0")[0].id;
+  const input: Assembly = {
+    unitId: "u1", date: todaySaoPaulo(), shift: "day", teamId: d.teams.find(t => t.unitId === "u1")!.id,
+    selections: { r0: [professionalId], r1: [] }, confirmed: {},
+  };
+  const published = structuredClone(d.published);
+  const schedules = structuredClone(d.schedules);
+  confirmAssemblyRole(d, manager, input, "r1");
+  confirmAssemblyRole(d, manager, input, "r0");
+  assert.deepEqual(d.published, published);
+  assert.deepEqual(d.schedules, schedules);
+
+  const reloaded = JSON.parse(JSON.stringify(d)) as typeof d;
+  assert.deepEqual(resumeAssembly(reloaded, manager, input).selections, input.selections);
+  assert.deepEqual(resumeAssembly(reloaded, manager, input).confirmed, { r0: true, r1: true });
+  for (const context of [
+    { date: "2026-01-01" }, { shift: "night" }, { teamId: "outra-equipe" },
+    { workRegime: "24h" }, { workRegime: "diarist", startTime: "09:00" },
+  ] satisfies Partial<Assembly>[]) {
+    assert.deepEqual(resumeAssembly(reloaded, manager, { ...input, ...context }).confirmed, {});
+  }
+  assert.deepEqual(resumeAssembly(reloaded, { userId: "admin", activeUnitId: "u2" },
+    { ...input, unitId: "u2" }).confirmed, {});
+  assert.throws(() => confirmAssemblyRole(reloaded, manager, { ...input, unitId: "u2" }, "r0"));
+
+  reloaded.professionals.find(p => p.id === professionalId)!.active = false;
+  assert.equal(resumeAssembly(reloaded, manager, input).confirmed.r0, false);
+  assert.equal(resumeAssembly(reloaded, manager, input).confirmed.r1, true);
+  clearAssemblyConfirmations(reloaded, manager, input);
+  assert.deepEqual(resumeAssembly(reloaded, manager, input).confirmed, {});
+});
 test("rascunho mantém a publicação; publicar substitui a chave sem duplicar nem alterar o modelo", () => {
   const d = seed();
   const old = structuredClone(

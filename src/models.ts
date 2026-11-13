@@ -84,6 +84,7 @@ export interface Data {
   integrationConfigs?: IntegrationConfig[];
   professionalMappings?: ProfessionalMapping[];
   importedRows?: string[];
+  assemblyConfirmations?: Record<string, Record<string, string[]>>;
 }
 export interface Session {
   userId: string;
