@@ -1,6 +1,5 @@
 import { IntegrationPage } from "./components/IntegrationPage";
-import { ImportProfessionals } from "./components/ImportProfessionals";
-import { ensureRoleCatalog, normalizedName } from "./imports/cbo";
+import { ensureRoleCatalog } from "./imports/cbo";
 import { regimeLabel, validateRegime, workAssignment, workRegimes } from "./services/workRegimes";
 import React, {
   useState,
@@ -73,6 +72,9 @@ import {
   resumeAssembly,
   confirmAssemblyRole,
   teamAdditions,
+  publicationPeople,
+  previewPartialCopy,
+  savePartialCopy,
   clearAssemblyConfirmations,
   copyPublication,
   todaySaoPaulo,
@@ -659,11 +661,20 @@ function SchedulePage() {
   const { d, s, unit, change, toast } = useApp();
   const location = useLocation();
   const roles = d.roles.filter(r => r.active);
-  const fresh = (): Assembly => ({ unitId: s.activeUnitId, date: todaySaoPaulo(), shift: "day",
-    selections: {}, confirmed: {} });
+  const fresh = (): Assembly => {
+    const params = new URLSearchParams(location.search);
+    const date = params.get("data") || "";
+    const parsed = new Date(date + "T00:00:00Z");
+    const team = params.get("equipe");
+    return { unitId: s.activeUnitId, date: !Number.isNaN(+parsed) && parsed.toISOString().slice(0, 10) === date
+      && date >= todaySaoPaulo() ? date : todaySaoPaulo(), shift: params.get("turno") === "night" ? "night" : "day",
+      teamId: d.teams.find(t => t.id === team && t.unitId === s.activeUnitId && t.active)?.id,
+      selections: {}, confirmed: {} };
+  };
   const contextStorageKey = JSON.stringify(["rio-assembly-context", s.userId, s.activeUnitId]);
   const [draft, setDraft] = useState(() => {
     const current = fresh();
+    if (location.search) return resumeAssembly(d, s, current);
     try {
       const context = JSON.parse(sessionStorage.getItem(contextStorageKey) || "null");
       if (context?.date === current.date && (!context.teamId || d.teams.some(t => t.id === context.teamId && t.unitId === current.unitId && t.active))) {
@@ -713,7 +724,7 @@ function SchedulePage() {
   }, [location.key]);
   useEffect(() => {
     const check = () => {
-      if (todaySaoPaulo() !== draft.date) {
+      if (todaySaoPaulo() > draft.date) {
         openAssembly(resumeAssembly(d, s, fresh())); toast("O dia mudou em São Paulo. A montagem foi reiniciada para o dia atual.");
       }
     };
@@ -769,7 +780,8 @@ function SchedulePage() {
     {draft.confirmed[r.id] ? <span className="role-complete"><Check size={16} aria-hidden="true" /> Concluído</span>
       : hasChanges(r.id) && <span className="role-unsaved">Alterações não salvas</span>}
   </>;
-  const ready = roles.length > 0 && roles.every(r => draft.confirmed[r.id]) && roles.some(r => draft.selections[r.id]?.length);
+  const isToday = draft.date === todaySaoPaulo();
+  const ready = isToday && roles.length > 0 && roles.every(r => draft.confirmed[r.id]) && roles.some(r => draft.selections[r.id]?.length);
   const includes24h = roles.some(r => draft.selections[r.id]?.some(id => draft.workAssignments?.[id]?.workRegime === "24h"));
   return <div data-dirty={dirty}>
     <PageTitle eyebrow="PLANEJAMENTO ASSISTENCIAL · DADOS FICTÍCIOS" title="Montagem de escala" subtitle="Confirme cada cargo e publique o plantão completo ao final.">
@@ -837,9 +849,9 @@ function SchedulePage() {
             onChange={() => update(selected ? ids.filter(id => id !== p.id) : [...ids, p.id])} /> <b>{p.fullName}</b></label>
           {selected && <div className="person-work">
             <Field label="Jornada"><select aria-label={`Jornada de ${p.fullName}`} value={assignment.workRegime}
-              aria-describedby={workError ? errorId : undefined}
+              title={regimeLabel(assignment.workRegime)} aria-describedby={workError ? errorId : undefined}
               onChange={e => updateWorkAssignment(p.id, workAssignment({ workRegime: e.target.value as WorkRegime, startTime: assignment.startTime }))}>
-              {workRegimes.map(regime => <option key={regime} value={regime}>{regimeLabel(regime)}</option>)}
+              {workRegimes.map(regime => <option key={regime} value={regime} title={regimeLabel(regime)}>{regime === "diarist" ? "Diarista · 8h" : regime === "24h" ? "24 horas" : regimeLabel(regime)}</option>)}
             </select></Field>
             {workError && <p id={errorId} role="alert">{workError}</p>}
           </div>}
@@ -852,9 +864,10 @@ function SchedulePage() {
         if (Object.keys(draft.selections).length || Object.keys(draft.confirmed).length) setPending(() => reset);
         else reset();
       }}>Reiniciar montagem</button>
-      <button className="btn" disabled={!role || !!draft.confirmed[role.id]} onClick={confirmRole}><Check size={16} />{ids.length ? "Confirmar cargo" : "Confirmar: Nenhum profissional para este cargo"}</button>
+      <button className="btn" disabled={!role || !isToday || !!draft.confirmed[role.id]} onClick={confirmRole}><Check size={16} />{ids.length ? "Confirmar cargo" : "Confirmar: Nenhum profissional para este cargo"}</button>
       {role && <button className="btn primary" disabled={!ready} onClick={() => setPublish(true)}><Send size={16} /> Publicar escala</button>}
     </div></div>
+    {!isToday && <p className="listnote">Rascunho para {dateLabel(draft.date)}. A confirmação e a publicação ficam disponíveis na data da escala.</p>}
     {teamPicker !== null && <Modal title="Adicionar equipe" onClose={() => setTeamPicker(null)}>
       <div className="modalbody">
         <Field label="Equipe"><select value={teamPicker} onChange={e => setTeamPicker(e.target.value)}>
@@ -1098,7 +1111,6 @@ function Professionals() {
           {!list.length && <Empty text="Nenhum profissional encontrado." />}
         </div>
       </section>
-      {normalizedName(unit.name) === "cer barra" && <ImportProfessionals d={d} s={s} change={change} />}
       {edit && (
         <Modal
           title={
@@ -1202,6 +1214,7 @@ function Professionals() {
 function Teams() {
   const { d, s, unit, change } = useApp();
   const [edit, setEdit] = useState<Team | null>(null);
+  const [view, setView] = useState<Team | null>(null);
   const [ids, setIds] = useState<string[]>([]);
   const [turn, setTurn] = useState("");
   const [role, setRole] = useState("");
@@ -1270,47 +1283,29 @@ function Teams() {
       <div className="teamgrid">
         {teams.map((t) => (
           <section className="panel teamcard" key={t.id}>
-            <div className="sectionheading">
-              <span className="teamletter">{t.name.slice(0, 2)}</span>
-              <div>
-                <h2>Equipe {t.name}</h2>
-                <p>{t.shift ? shiftLabel(t.shift) : "Diurno e noturno"}</p>
-              </div>
-              <Badge tone="neutral">Modelo</Badge>
-            </div>
-            <div className="teamroles">
-              {d.roles.map((r) => {
-                const members = d.members.filter(
-                  (m) => m.teamId === t.id && m.roleId === r.id,
-                );
-                return (
-                  <div key={r.id}>
-                    <span>{r.name}</span>
-                    <b>{members.length.toString().padStart(2, "0")}</b>
-                    <small>
-                      {members
-                        .map(
-                          (m) =>
-                            d.professionals.find(
-                              (p) => p.id === m.professionalId,
-                            )?.fullName,
-                        )
-                        .join(" · ") || "Sem composição"}
-                    </small>
-                  </div>
-                );
-              })}
-            </div>
-            <button className="btn" onClick={() => open(t)}>
-              <Pencil size={16} />
-              Editar equipe
-            </button>
+            <h2>Equipe {t.name}</h2>
+            <button className="btn" onClick={() => setView(t)}>Visualizar equipe</button>
           </section>
         ))}
       </div>
       {!teams.length && (
         <Empty text="Nenhuma equipe cadastrada. Crie um modelo para começar." />
       )}
+      {view && <Modal title={`Equipe ${view.name}`} onClose={() => setView(null)}>
+        <div className="modalbody history-members">
+          <p>{view.shift ? shiftLabel(view.shift) : "Diurno e noturno"}</p>
+          {d.members.some(m => m.teamId === view.id) ? <ul className="member-list">
+            {d.members.filter(m => m.teamId === view.id)
+              .map(m => ({ ...m, name: d.professionals.find(p => p.id === m.professionalId)?.fullName || m.professionalId }))
+              .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
+              .map(m => <li key={m.professionalId}><b>{m.name}</b><span>{d.roles.find(r => r.id === m.roleId)?.name || m.roleId}</span></li>)}
+          </ul> : <Empty text="Esta equipe não tem integrantes." />}
+        </div>
+        <footer>
+          <button className="btn" onClick={() => setView(null)}>Fechar</button>
+          <button className="btn primary" onClick={() => { open(view); setView(null); }}><Pencil size={16} /> Editar equipe</button>
+        </footer>
+      </Modal>}
       {edit && (
         <Modal
           title={"Modelo · Equipe " + (edit.name || "nova")}
@@ -1414,13 +1409,108 @@ function Teams() {
     </>
   );
 }
+function PublicationModal({ records, mode, close }: {
+  records: Schedule[]; mode: "view" | "partial"; close: () => void;
+}) {
+  const { d, s, user, change, setUnit } = useApp();
+  const nav = useNavigate();
+  const origin = records[0];
+  const today = todaySaoPaulo();
+  const [date, setDate] = useState(today);
+  const [shift, setShift] = useState<Shift>(origin.shift);
+  const [unitId, setUnitId] = useState(origin.unitId);
+  const [teamId, setTeamId] = useState(origin.teamId || "");
+  const [selected, setSelected] = useState<Record<string, WorkAssignment>>({});
+  const people = publicationPeople(records);
+  const name = (id: string) => d.professionals.find(p => p.id === id)?.fullName || id;
+  const groups = [...new Set(people.map(p => p.roleId))];
+  const target: Assembly = { unitId, date, shift, selections: {}, confirmed: {},
+    teamId: d.teams.find(t => t.id === teamId && t.active && t.unitId === unitId)?.id };
+  const session = { ...s, activeUnitId: unitId };
+  let preview: ReturnType<typeof previewPartialCopy>["entries"] = [];
+  let error = "";
+  if (mode === "partial") {
+    try { preview = previewPartialCopy(d, session, records, target, selected).entries; }
+    catch (e) { error = (e as Error).message; }
+  }
+  const entries = preview.filter(p => !p.issue && !p.duplicate);
+  const copy = () => {
+    if (!change(x => savePartialCopy(x, session, records, target, selected), "Seleção copiada para o rascunho.")) return;
+    if (unitId !== s.activeUnitId) setUnit(unitId);
+    const params = new URLSearchParams({ data: date, turno: shift });
+    if (target.teamId) params.set("equipe", target.teamId);
+    nav(`/escala?${params}`);
+  };
+  return <Modal title={mode === "view" ? "Visualizar escala" : "Copiar selecionados"} onClose={close}>
+    <div className="modalbody history-members">
+      <p><b>{d.units.find(u => u.id === origin.unitId)?.name}</b> · {dateLabel(origin.date)} · {
+        records.some(r => r.shift !== origin.shift) ? "Diurno e noturno" : shiftLabel(origin.shift)}
+        {origin.teamId && ` · Equipe ${d.teams.find(t => t.id === origin.teamId)?.name || origin.teamId}`}</p>
+      {mode === "partial" && <>
+        <div className="partial-fields">
+          {user.role === "global_admin" && <Field label="Unidade de destino"><select value={unitId} onChange={e => setUnitId(e.target.value)}>
+            {d.units.filter(u => u.active).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select></Field>}
+          <Field label="Data de destino"><input type="date" min={today} value={date} onChange={e => setDate(e.target.value)} /></Field>
+          <Field label="Turno de destino"><select value={shift} onChange={e => setShift(e.target.value as Shift)}>
+            <option value="day">Diurno — 07h às 19h</option><option value="night">Noturno — 19h às 07h</option>
+          </select></Field>
+          <Field label="Equipe de destino"><select value={target.teamId || ""} onChange={e => setTeamId(e.target.value)}>
+            <option value="">Composição sem equipe</option>
+            {d.teams.filter(t => t.active && t.unitId === unitId).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select></Field>
+        </div>
+        <p>Destino da cópia · {target.teamId ? `Equipe ${d.teams.find(t => t.id === target.teamId)?.name}` : "Composição sem equipe"}</p>
+        <div className="rowactions">
+          <button className="btn" onClick={() => setSelected(Object.fromEntries(people.map(p => [p.id, selected[p.id] || p.assignment])))}>Selecionar todos</button>
+          <button className="btn" onClick={() => setSelected({})}>Desmarcar todos</button>
+        </div>
+      </>}
+      {!people.length && <Empty text="Esta escala não tem profissionais." />}
+      {groups.map(roleId => <section key={roleId} className="history-role">
+        <h3>{d.roles.find(r => r.id === roleId)?.name || roleId}</h3>
+        <ul className="member-list">{people.filter(p => p.roleId === roleId).map(p => {
+          const assignment = selected[p.id];
+          const result = preview.find(row => row.id === p.id);
+          return <li key={p.id}>
+            {mode === "view" ? <b>{name(p.id)}</b> : <label><input type="checkbox" checked={!!assignment} onChange={e => {
+              const next = { ...selected };
+              if (e.target.checked) next[p.id] = p.assignment;
+              else delete next[p.id];
+              setSelected(next);
+            }} /> {name(p.id)}</label>}
+            {assignment && !result?.duplicate ? <select aria-label={`Jornada de ${name(p.id)}`} value={assignment.workRegime}
+              onChange={e => setSelected({ ...selected, [p.id]: workAssignment({ workRegime: e.target.value as WorkRegime,
+                startTime: p.assignment.startTime }) })}>
+              {workRegimes.map(regime => <option key={regime} value={regime}>{regimeLabel(regime)}</option>)}
+            </select> : <span>{regimeLabel(p.assignment.workRegime)}{p.assignment.startTime && ` · ${p.assignment.startTime}`}</span>}
+            {result?.issue && <small role="alert">{result.issue}</small>}
+            {result?.duplicate && <small>Já está no destino. A jornada do destino será mantida.</small>}
+          </li>;
+        })}</ul>
+      </section>)}
+      {mode === "partial" && <section className="history-role">
+        <h3>Prévia da cópia · {entries.length} a incluir</h3>
+        {entries.length > 0 && <ul className="member-list">{entries.map(p => <li key={p.id}>{name(p.id)} · {p.assignment && regimeLabel(p.assignment.workRegime)}</li>)}</ul>}
+        {error && <p role="alert">{error}</p>}
+      </section>}
+    </div>
+    <footer>
+      <button className="btn" onClick={close}>{mode === "view" ? "Fechar" : "Cancelar"}</button>
+      {mode === "partial" && <button className="btn primary" onClick={copy}
+        disabled={!!error || !entries.length || preview.some(p => p.issue)}>Confirmar cópia</button>}
+    </footer>
+  </Modal>;
+}
+
 function HistoryPage() {
   const { d, s, user, setUnit, toast } = useApp();
   const [unit, setUnitFilter] = useState("");
   const nav = useNavigate();
   const [copy, setCopy] = useState<Schedule[] | null>(null);
+  const [publication, setPublication] = useState<{ records: Schedule[]; mode: "view" | "partial" } | null>(null);
   const publications = Object.values(d.published.filter(x => user.role === "global_admin" ? (!unit || x.unitId === unit) : x.unitId === s.activeUnitId).reduce<Record<string, Schedule[]>>((groups, x) => {
-    const k = x.workRegime === "24h" && x.publicationId ? x.publicationId : [x.unitId, x.date, x.shift, x.teamId].join("|");
+    const k = x.publicationId || [x.unitId, x.date, x.shift, x.teamId].join("|");
     (groups[k] ||= []).push(x); return groups;
   }, {}));
   const [detail, setDetail] = useState<Data["events"][number] | null>(null);
@@ -1456,15 +1546,18 @@ function HistoryPage() {
       )}
       <section className="panel">
         <div className="sectionheading"><h2>Publicações · Copiar escala</h2></div>
-        {publications.map(records => { const p = records[0]; return <div className="publicationrow" key={[p.unitId, p.date, p.shift, p.teamId].join("|")}>
+        {publications.map(records => { const p = records[0]; return <div className="publicationrow" key={p.publicationId || [p.unitId, p.date, p.shift, p.teamId].join("|")}>
           <span><b>{d.units.find(u => u.id === p.unitId)?.name}</b><br />{dateLabel(p.date)} · {p.workRegime === "24h" ? "Diurno e noturno" : shiftLabel(p.shift)} · {records.some(r => r.workAssignments) ? "Jornadas individuais" : regimeLabel(p.workRegime)}{p.teamId && ` · Equipe ${d.teams.find(t => t.id === p.teamId)?.name}`} · {new Set(records.map(r => r.roleId)).size} cargos</span>
-          <button className="btn" onClick={() => {
+          <div className="rowactions"><button className="btn" onClick={() => {
             if (p.unitId !== s.activeUnitId) { setCopy(records); return; }
             try { copyPublication(d, s, records); nav("/escala", { state: { publication: records } }); } catch (e) { toast((e as Error).message); }
           }}><Copy size={16} /> Copiar escala</button>
+          <button className="btn" onClick={() => setPublication({ records, mode: "view" })}><Eye size={16} /> Visualizar escala</button>
+          <button className="btn" onClick={() => setPublication({ records, mode: "partial" })}>Copiar selecionados</button></div>
         </div>; })}
         {!publications.length && <Empty text="Nenhuma publicação disponível." />}
       </section>
+      {publication && <PublicationModal {...publication} close={() => setPublication(null)} />}
       {copy && <Confirm title="Trocar a unidade ativa para copiar?" onClose={() => setCopy(null)} onConfirm={() => {
         const unitId = copy[0].unitId;
         try { copyPublication(d, { ...s, activeUnitId: unitId }, copy); setUnit(unitId); nav("/escala", { state: { publication: copy } }); } catch (e) { toast((e as Error).message); }
@@ -1505,10 +1598,23 @@ function HistoryPage() {
                       : "Alteração registrada no estado local da demonstração."}
                 </small>
               </div>
+              <div className="rowactions">
+              {e.entity === "Escala" && e.action === "Publicar" && !!e.after && typeof e.after === "object" &&
+                "professionalIds" in e.after && <button className="btn" onClick={() => {
+                  const record = e.after as Schedule;
+                  const version = record.publicationId ? d.events.flatMap(item => {
+                    if (item.unitId !== e.unitId || item.action !== "Publicar" || !item.after
+                      || typeof item.after !== "object" || !("publicationId" in item.after)
+                      || item.after.publicationId !== record.publicationId) return [];
+                    return [item.after as Schedule];
+                  }) : [record];
+                  setPublication({ records: version.length ? version : [record], mode: "view" });
+                }}><Eye size={16} /> Visualizar escala</button>}
               <button className="btn" onClick={() => setDetail(e)}>
                 Detalhes
                 <ChevronRight size={14} />
               </button>
+              </div>
             </div>
           ))}
           {!events.length && (

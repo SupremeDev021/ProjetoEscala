@@ -18,6 +18,8 @@ import {
   resumeAssembly,
   clearAssemblyConfirmations,
   teamAdditions,
+  previewPartialCopy,
+  savePartialCopy,
   type Assembly,
 } from "./domain";
 function seed() {
@@ -26,6 +28,30 @@ function seed() {
   return d;
 }
 const manager = { userId: "gestor", activeUnitId: "u1" };
+test("cópia parcial preserva origem e destino, valida jornada e registra apenas inclusões", () => {
+  const d = seed();
+  const source = d.published.filter(r => r.unitId === "u1" && r.shift === "day" && r.roleId === "r0");
+  source[0].workAssignments = { u1p6: { workRegime: "diarist", startTime: "09:00" } };
+  const target: Assembly = { unitId: "u1", date: todaySaoPaulo(), shift: "night", teamId: "u1A", selections: {}, confirmed: {} };
+  const existing = { ...source[0], date: target.date, shift: target.shift, professionalIds: ["u1p0"], workAssignments: undefined };
+  d.schedules.push(existing);
+  const before = structuredClone(d);
+  const invalid = previewPartialCopy(d, manager, source, target, {
+    u1p0: { workRegime: "12x36" }, u1p6: { workRegime: "diarist", startTime: "09:00" },
+  });
+  assert.equal(invalid.entries[0].duplicate, true);
+  assert.match(invalid.entries[1].issue!, /iniciam no diurno/);
+  assert.deepEqual(d, before);
+  assert.throws(() => savePartialCopy(d, manager, source, target, { u1p6: { workRegime: "diarist" } }));
+  savePartialCopy(d, manager, source, target, { u1p0: { workRegime: "12x36" }, u1p6: { workRegime: "12x36" } });
+  const result = resumeAssembly(d, manager, target);
+  assert.deepEqual(result.selections.r0, ["u1p0", "u1p6"]);
+  assert.equal(result.confirmed.r0, false);
+  assert.deepEqual(d.schedules, before.schedules);
+  assert.deepEqual(d.published, before.published);
+  assert.equal(d.events[0].action, "Copiar selecionados");
+  assert.throws(() => savePartialCopy(d, manager, source, target, { u1p6: { workRegime: "12x36" } }));
+});
 test("composição sem equipe não substitui escalas antigas vinculadas a equipes", () => {
   const d = seed();
   const linked = structuredClone(d.published.filter(record => record.teamId));

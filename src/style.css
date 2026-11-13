@@ -2308,7 +2308,8 @@ td > svg {
   display: grid;
   gap: 4px;
   min-width: 0;
-  flex: 1 1 150px;
+  flex: 0 0 auto;
+  width: min(100%, 88px);
 }
 .person-work select {
   min-width: 0;
@@ -2327,6 +2328,44 @@ td > svg {
   max-height: 180px;
   overflow: auto;
   padding-inline-start: 22px;
+}
+.teamcard > h2 {
+  margin: 0;
+}
+.history-members {
+  max-height: min(65vh, 560px);
+  overflow: auto;
+}
+.member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.member-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+.member-list li small {
+  width: 100%;
+}
+.history-members [role="alert"] {
+  color: #a32020;
+}
+.history-role {
+  margin-top: 16px;
+}
+.partial-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+.publicationrow .rowactions {
+  flex-wrap: wrap;
 }
 
 .role-picker {

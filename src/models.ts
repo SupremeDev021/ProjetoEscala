@@ -93,6 +93,7 @@ export interface Data {
   assemblyConfirmations?: Record<string, Record<string, string[] | {
     professionalIds: string[];
     workAssignments: Record<string, WorkAssignment>;
+    confirmed?: boolean;
   }>>;
 }
 export interface Session {
