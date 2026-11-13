@@ -8,6 +8,7 @@ import type {
   UserAccess,
   Unit,
   WorkAssignment,
+  Shift,
 } from "./models";
 export const STORAGE_KEY = "rio-escalas-demo-v1";
 export const key = (
@@ -38,6 +39,28 @@ export function available(d: Data, unitId: string, roleId?: string) {
         (l) => l.unitId === unitId && l.professionalId === p.id && l.active,
       ),
   );
+}
+
+export function teamAdditions(d: Data, s: Session, input: Assembly, teamId: string) {
+  scope(d, s, input.unitId);
+  if (!d.teams.some(t => t.id === teamId && t.unitId === input.unitId && t.active))
+    throw Error("Equipe inválida.");
+  const activeRoles = new Set(d.roles.filter(r => r.active).map(r => r.id));
+  const eligible = new Map(available(d, input.unitId).map(p => [p.id, p]));
+  const additions = new Map<string, { professional: Professional; assignment?: WorkAssignment }>();
+  for (const member of d.members) {
+    if (member.teamId !== teamId) continue;
+    const professional = eligible.get(member.professionalId);
+    if (!professional || professional.roleId !== member.roleId || !activeRoles.has(member.roleId)
+      || input.selections[member.roleId]?.includes(professional.id)) continue;
+    let assignment = member.workAssignment && workAssignment(member.workAssignment);
+    if (assignment) {
+      try { validateRegime(assignment.workRegime, input.shift, assignment.startTime); }
+      catch { assignment = undefined; }
+    }
+    additions.set(professional.id, { professional, assignment });
+  }
+  return [...additions.values()];
 }
 export function event(
   d: Data,
@@ -71,12 +94,12 @@ export function saveSchedule(
   if (input.date !== todaySaoPaulo()) throw Error("A montagem deve usar o dia atual de São Paulo.");
   if (
     !input.date ||
-    !d.teams.some(
+    (input.teamId && !d.teams.some(
       (t) => t.id === input.teamId && t.unitId === s.activeUnitId && t.active,
-    ) ||
+    )) ||
     !d.roles.some((r) => r.id === input.roleId && r.active)
   )
-    throw Error("Preencha data, equipe e cargo válidos.");
+    throw Error("Informe data e cargo válidos e, se indicada, uma equipe ativa da unidade.");
   const old = d.schedules.find((x) => key(x) === key(input));
   const allowed = available(d, s.activeUnitId, input.roleId).map((p) => p.id);
   if (
@@ -213,6 +236,7 @@ export function saveTeam(d: Data, s: Session, t: Team, ids: string[]) {
       teamId: t.id,
       professionalId: id,
       roleId: d.professionals.find((p) => p.id === id)!.roleId,
+      workAssignment: before.members.find(m => m.professionalId === id)?.workAssignment,
     }),
   );
   event(d, s, "Equipe", t.id, "Alterar equipe", before, {
@@ -256,7 +280,7 @@ export function todaySaoPaulo(now = new Date()): string {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 export interface Assembly {
-  unitId: string; date: string; shift: Schedule["shift"]; teamId: string;
+  unitId: string; date: string; shift: Shift; teamId?: string;
   workRegime?: Schedule["workRegime"]; startTime?: string;
   selections: Record<string, string[]>;
   workAssignments?: Record<string, WorkAssignment>;
@@ -264,7 +288,7 @@ export interface Assembly {
 }
 
 export function assemblyContext(input: Assembly) {
-  return JSON.stringify([input.unitId, input.date, input.shift, input.teamId]);
+  return JSON.stringify([input.unitId, input.date, input.shift, input.teamId || null]);
 }
 
 function legacyAssemblyContext(input: Assembly) {
@@ -313,7 +337,7 @@ function roleComposition(d: Data, input: Assembly, roleId: string) {
 export function confirmAssemblyRole(d: Data, s: Session, input: Assembly, roleId: string) {
   scope(d, s, input.unitId);
   if (input.date !== todaySaoPaulo()) throw Error("A montagem deve usar o dia atual de São Paulo.");
-  if (!d.teams.some(t => t.id === input.teamId && t.unitId === input.unitId && t.active))
+  if (input.teamId && !d.teams.some(t => t.id === input.teamId && t.unitId === input.unitId && t.active))
     throw Error("Equipe inválida.");
   if (!d.roles.some(r => r.id === roleId && r.active)) throw Error("Cargo inválido.");
   if (!["day", "night"].includes(input.shift)) throw Error("Turno inválido.");
@@ -342,7 +366,7 @@ export function clearAssemblyConfirmations(d: Data, s: Session, input: Assembly)
 export function publishAssembly(d: Data, s: Session, input: Assembly) {
   scope(d, s, input.unitId);
   if (input.date !== todaySaoPaulo()) throw Error("A montagem deve usar o dia atual de São Paulo.");
-  if (!["day", "night"].includes(input.shift) || !d.teams.some(t => t.id === input.teamId && t.unitId === input.unitId && t.active))
+  if (!["day", "night"].includes(input.shift) || (input.teamId && !d.teams.some(t => t.id === input.teamId && t.unitId === input.unitId && t.active)))
     throw Error("Equipe ou turno inválido.");
   const legacyAssignment = input.workAssignments ? undefined : workAssignment(input);
   if (legacyAssignment) validateRegime(legacyAssignment.workRegime, input.shift, legacyAssignment.startTime);
@@ -392,7 +416,8 @@ export function copyPublication(d: Data, s: Session, records: Schedule[]) {
   scope(d, s, first.unitId);
   if (records.some(x => x.unitId !== first.unitId || x.date !== first.date || (x.shift !== first.shift && !(first.workRegime === "24h" && first.publicationId && x.publicationId === first.publicationId)) || x.teamId !== first.teamId || x.status !== "published"))
     throw Error("Publicação incompatível.");
-  if (!d.teams.some(t => t.id === first.teamId && t.unitId === first.unitId && t.active)) throw Error("A equipe de origem está inativa ou indisponível.");
+  if (first.teamId && !d.teams.some(t => t.id === first.teamId && t.unitId === first.unitId && t.active))
+    throw Error("A equipe de origem está inativa ou indisponível.");
   const selections: Record<string, string[]> = {};
   const workAssignments: Record<string, WorkAssignment> = {};
   const ignored = new Set<string>();

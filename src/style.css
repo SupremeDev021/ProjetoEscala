@@ -2288,9 +2288,15 @@ td > svg {
 }
 
 .assembly-person {
-  flex-direction: column;
-  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  min-height: 35px;
+  padding: 4px 12px;
   cursor: default;
+}
+.peoplepanel .peoplelist {
+  min-height: 0;
+  max-height: 165px;
 }
 .assembly-person > label {
   display: flex;
@@ -2300,13 +2306,15 @@ td > svg {
 }
 .person-work {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   min-width: 0;
-  width: 100%;
+  flex: 1 1 150px;
 }
-.person-work :is(select, input) {
+.person-work select {
   min-width: 0;
   width: 100%;
+  min-height: 30px;
+  padding-block: 3px;
 }
 .person-work [role="alert"] {
   margin: 0;
@@ -2314,6 +2322,11 @@ td > svg {
 }
 .peoplepanel .sectionheading {
   flex-wrap: wrap;
+}
+.team-preview {
+  max-height: 180px;
+  overflow: auto;
+  padding-inline-start: 22px;
 }
 
 .role-picker {
