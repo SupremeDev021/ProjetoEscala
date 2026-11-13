@@ -1,4 +1,4 @@
-import { validateRegime } from "./services/workRegimes";
+import { validateRegime, workAssignment } from "./services/workRegimes";
 import type {
   Data,
   Session,
@@ -7,6 +7,7 @@ import type {
   Team,
   UserAccess,
   Unit,
+  WorkAssignment,
 } from "./models";
 export const STORAGE_KEY = "rio-escalas-demo-v1";
 export const key = (
@@ -258,10 +259,15 @@ export interface Assembly {
   unitId: string; date: string; shift: Schedule["shift"]; teamId: string;
   workRegime?: Schedule["workRegime"]; startTime?: string;
   selections: Record<string, string[]>;
+  workAssignments?: Record<string, WorkAssignment>;
   confirmed: Record<string, boolean>;
 }
 
 export function assemblyContext(input: Assembly) {
+  return JSON.stringify([input.unitId, input.date, input.shift, input.teamId]);
+}
+
+function legacyAssemblyContext(input: Assembly) {
   const regime = input.workRegime || "12x36";
   return JSON.stringify([input.unitId, input.date, input.shift, input.teamId, regime,
     regime === "diarist" ? input.startTime || "08:00" : null]);
@@ -271,14 +277,37 @@ export function resumeAssembly(d: Data, s: Session, input: Assembly): Assembly {
   scope(d, s, input.unitId);
   const selections: Assembly["selections"] = {};
   const confirmed: Assembly["confirmed"] = {};
-  const saved = d.assemblyConfirmations?.[assemblyContext(input)];
-  for (const [roleId, ids] of Object.entries(saved || {})) {
+  const workAssignments: NonNullable<Assembly["workAssignments"]> = {};
+  const saved = d.assemblyConfirmations?.[assemblyContext(input)]
+    ?? d.assemblyConfirmations?.[legacyAssemblyContext(input)];
+  for (const [roleId, composition] of Object.entries(saved || {})) {
     if (!d.roles.some(r => r.id === roleId && r.active)) continue;
+    const ids = Array.isArray(composition) ? composition : composition.professionalIds;
     const allowed = new Set(available(d, input.unitId, roleId).map(p => p.id));
     selections[roleId] = ids.filter(id => allowed.has(id));
+    for (const id of selections[roleId]) {
+      workAssignments[id] = workAssignment(Array.isArray(composition) ? input : composition.workAssignments[id] || {});
+    }
     confirmed[roleId] = selections[roleId].length === ids.length;
   }
-  return { ...input, selections, confirmed };
+  return { ...input, workRegime: undefined, startTime: undefined, selections, workAssignments, confirmed };
+}
+
+function roleComposition(d: Data, input: Assembly, roleId: string) {
+  const professionalIds = [...new Set(input.selections[roleId] || [])];
+  const allowed = new Map(available(d, input.unitId, roleId).map(p => [p.id, p]));
+  const workAssignments = Object.fromEntries(professionalIds.map(id => {
+    const professional = allowed.get(id);
+    if (!professional) throw Error("Profissional indisponível para esta unidade e cargo.");
+    const assignment = workAssignment(input.workAssignments?.[id] || input);
+    try {
+      validateRegime(assignment.workRegime, input.shift, assignment.startTime);
+    } catch (error) {
+      throw Error(`${professional.fullName}: ${(error as Error).message}`);
+    }
+    return [id, assignment];
+  }));
+  return { professionalIds, workAssignments };
 }
 
 export function confirmAssemblyRole(d: Data, s: Session, input: Assembly, roleId: string) {
@@ -287,20 +316,27 @@ export function confirmAssemblyRole(d: Data, s: Session, input: Assembly, roleId
   if (!d.teams.some(t => t.id === input.teamId && t.unitId === input.unitId && t.active))
     throw Error("Equipe inválida.");
   if (!d.roles.some(r => r.id === roleId && r.active)) throw Error("Cargo inválido.");
-  validateRegime(input.workRegime, input.shift, input.startTime);
-  const ids = [...new Set(input.selections[roleId] || [])];
-  const allowed = new Set(available(d, input.unitId, roleId).map(p => p.id));
-  if (ids.some(id => !allowed.has(id))) throw Error("Profissional indisponível para esta unidade e cargo.");
+  if (!["day", "night"].includes(input.shift)) throw Error("Turno inválido.");
+  const composition = roleComposition(d, input, roleId);
   const confirmations = d.assemblyConfirmations ??= {};
   for (const context of Object.keys(confirmations)) {
     if (JSON.parse(context)[1] !== input.date) delete confirmations[context];
   }
-  (confirmations[assemblyContext(input)] ??= {})[roleId] = ids;
+  const context = assemblyContext(input);
+  if (!confirmations[context]) {
+    confirmations[context] = Object.fromEntries(Object.keys(input.confirmed)
+      .filter(id => input.confirmed[id] && d.roles.some(r => r.id === id && r.active))
+      .map(id => [id, roleComposition(d, input, id)]));
+  }
+  confirmations[context][roleId] = composition;
 }
 
 export function clearAssemblyConfirmations(d: Data, s: Session, input: Assembly) {
   scope(d, s, input.unitId);
-  if (d.assemblyConfirmations) delete d.assemblyConfirmations[assemblyContext(input)];
+  const prefix = assemblyContext(input).slice(0, -1);
+  for (const context of Object.keys(d.assemblyConfirmations || {})) {
+    if (context === prefix + "]" || context.startsWith(prefix + ",")) delete d.assemblyConfirmations![context];
+  }
 }
 
 export function publishAssembly(d: Data, s: Session, input: Assembly) {
@@ -308,28 +344,40 @@ export function publishAssembly(d: Data, s: Session, input: Assembly) {
   if (input.date !== todaySaoPaulo()) throw Error("A montagem deve usar o dia atual de São Paulo.");
   if (!["day", "night"].includes(input.shift) || !d.teams.some(t => t.id === input.teamId && t.unitId === input.unitId && t.active))
     throw Error("Equipe ou turno inválido.");
-  validateRegime(input.workRegime, input.shift, input.startTime);
+  const legacyAssignment = input.workAssignments ? undefined : workAssignment(input);
+  if (legacyAssignment) validateRegime(legacyAssignment.workRegime, input.shift, legacyAssignment.startTime);
   const roles = d.roles.filter(r => r.active);
   if (!roles.length || roles.some(r => !input.confirmed[r.id])) throw Error("Confirme todos os cargos antes de publicar.");
   if (!roles.some(r => input.selections[r.id]?.length)) throw Error("Selecione pelo menos um profissional na montagem.");
   const timestamp = new Date().toISOString();
   const publicationId = crypto.randomUUID();
-  const shifts = input.workRegime === "24h" ? ["day", "night"] as const : [input.shift];
-  const records = roles.flatMap(r => shifts.map(shift => {
-    const ids = [...new Set(input.selections[r.id] || [])];
-    const allowed = available(d, input.unitId, r.id);
-    if (ids.some(id => !allowed.some(p => p.id === id))) throw Error("Profissional indisponível para esta unidade e cargo.");
-    const target = { unitId: input.unitId, date: input.date, shift, teamId: input.teamId, roleId: r.id };
-    const old = d.schedules.find(x => key(x) === key(target));
-    const published = d.published.find(x => key(x) === key(target));
-    return { ...target, id: old?.id || published?.id || crypto.randomUUID(), professionalIds: ids,
-      workRegime: input.workRegime || "12x36", startTime: input.workRegime === "diarist" ? input.startTime || "08:00" : undefined, publicationId,
-      status: "published" as const, version: Math.max(old?.version || 0, published?.version || 0) + 1, updatedAt: timestamp };
-  }));
+  const shifts = legacyAssignment?.workRegime === "24h" ? ["day", "night"] as const : [input.shift];
+  const records = roles.flatMap(r => {
+    const composition = roleComposition(d, input, r.id);
+    return shifts.map(shift => {
+      const target = { unitId: input.unitId, date: input.date, shift, teamId: input.teamId, roleId: r.id };
+      const old = d.schedules.find(x => key(x) === key(target));
+      const published = d.published.find(x => key(x) === key(target));
+      return { ...target, id: old?.id || published?.id || crypto.randomUUID(), professionalIds: composition.professionalIds,
+        ...(input.workAssignments && { workAssignments: composition.workAssignments }),
+        ...legacyAssignment, publicationId,
+        status: "published" as const, version: Math.max(old?.version || 0, published?.version || 0) + 1, updatedAt: timestamp };
+    });
+  });
   // Build and audit on an isolated copy: failures never leave a partial publication.
   const next = structuredClone(d);
   for (const record of records) {
     const old = next.schedules.find(x => key(x) === key(record));
+    const oldPublication = next.published.find(x => key(x) === key(record));
+    if (record.workAssignments && record.shift === "day" && oldPublication?.workRegime === "24h" && oldPublication.publicationId) {
+      const pairedNight = (x: Schedule) => x.shift === "night" && x.publicationId === oldPublication.publicationId
+        && key({ ...x, shift: "day" }) === key(record);
+      for (const previous of next.published.filter(pairedNight)) {
+        event(next, s, "Escala", previous.id, "Substituir cobertura noturna", previous);
+      }
+      next.schedules = next.schedules.filter(x => !pairedNight(x));
+      next.published = next.published.filter(x => !pairedNight(x));
+    }
     next.schedules = next.schedules.filter(x => key(x) !== key(record));
     next.published = next.published.filter(x => key(x) !== key(record));
     next.schedules.push(record);
@@ -346,13 +394,18 @@ export function copyPublication(d: Data, s: Session, records: Schedule[]) {
     throw Error("Publicação incompatível.");
   if (!d.teams.some(t => t.id === first.teamId && t.unitId === first.unitId && t.active)) throw Error("A equipe de origem está inativa ou indisponível.");
   const selections: Record<string, string[]> = {};
+  const workAssignments: Record<string, WorkAssignment> = {};
   const ignored = new Set<string>();
   for (const record of records) {
     const allowed = d.roles.some(r => r.id === record.roleId && r.active) ? available(d, first.unitId, record.roleId) : [];
-    selections[record.roleId] = record.professionalIds.filter(id => {
-      if (allowed.some(p => p.id === id)) return true;
+    const ids = record.professionalIds.filter(id => {
+      if (allowed.some(p => p.id === id)) {
+        workAssignments[id] = workAssignment(record.workAssignments?.[id] || record);
+        return true;
+      }
       ignored.add(d.professionals.find(p => p.id === id)?.fullName || id); return false;
     });
+    selections[record.roleId] = [...new Set([...(selections[record.roleId] || []), ...ids])];
   }
-  return { assembly: { unitId: first.unitId, date: todaySaoPaulo(), shift: first.workRegime === "24h" ? "day" : first.shift, teamId: first.teamId, workRegime: first.workRegime || "12x36", startTime: first.startTime, selections, confirmed: {} } as Assembly, ignored: [...ignored] };
+  return { assembly: { unitId: first.unitId, date: todaySaoPaulo(), shift: first.workRegime === "24h" ? "day" : first.shift, teamId: first.teamId, workRegime: first.workRegime || "12x36", startTime: first.startTime, selections, workAssignments, confirmed: {} } as Assembly, ignored: [...ignored] };
 }
