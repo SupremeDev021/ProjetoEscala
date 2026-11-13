@@ -2289,20 +2289,16 @@ td > svg {
 
 .assembly-editor {
   display: grid;
-  grid-template-columns: minmax(0, 340px) minmax(0, 560px);
-  align-items: start;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 720px;
+  gap: 12px;
 }
 .assembly-editor + .savebar {
-  max-width: 914px;
+  max-width: 720px;
 }
 .assembly-editor > .panel {
   min-width: 0;
   margin: 0;
-}
-.assembly-editor > .assembly-context {
-  width: 100%;
-  max-width: 340px;
 }
 .assembly-editor .sectionheading {
   padding: 10px 14px;
@@ -2312,12 +2308,9 @@ td > svg {
   margin-top: 2px;
 }
 .assembly-context .filters {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding: 10px 14px;
-}
-.assembly-context .filters > :first-child {
-  grid-column: 1 / -1;
 }
 .assembly-editor .field {
   gap: 3px;
@@ -2326,13 +2319,16 @@ td > svg {
   min-height: 34px;
   padding: 5px 8px;
 }
-.assembly-context .rolearea {
-  padding: 0 14px 12px;
+.assembly-editor .peoplepanel {
+  overflow: visible;
 }
-.assembly-context .role-picker > span {
+.assembly-editor .rolearea {
+  padding: 10px 14px 0;
+}
+.assembly-editor .role-picker > span {
   margin-bottom: 3px;
 }
-.assembly-context .role-trigger {
+.assembly-editor .role-trigger {
   min-height: 36px;
   padding: 6px 8px;
 }
@@ -2404,13 +2400,20 @@ td > svg {
   outline: 2px solid #087dc0;
   outline-offset: 2px;
 }
-@media (max-width: 900px) {
-  .assembly-editor {
-    grid-template-columns: minmax(0, 560px);
+.role-navigation {
+  display: flex;
+  gap: 4px;
+}
+.role-navigation .btn {
+  color: #075989;
+  background: #eef7fc;
+}
+@media (max-width: 500px) {
+  .assembly-context .filters {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
   }
-  .assembly-editor > .assembly-context,
-  .assembly-editor + .savebar {
-    max-width: 560px;
+  .assembly-context .filters > :first-child {
+    grid-column: 1 / -1;
   }
 }
 

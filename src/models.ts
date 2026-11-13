@@ -58,6 +58,7 @@ export interface Schedule {
   roleId: string;
   professionalIds: string[];
   workAssignments?: Record<string, WorkAssignment>;
+  coverageOrigin?: { date: string; shift: Shift };
   workRegime?: WorkRegime;
   startTime?: string;
   publicationId?: string;

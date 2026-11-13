@@ -23,7 +23,7 @@ test('12x36 respeita turno; diarista dura 8h e aparece no dashboard apenas duran
   assert.equal(projectDashboard(d, 'u1', x.date, 'day', window.start - 1).total, 0);
   assert.equal(projectDashboard(d, 'u1', x.date, 'day', window.start).total, 1);
   assert.equal(projectDashboard(d, 'u1', x.date, 'day', window.end).total, 0);
-  assert.throws(() => validateRegime('diarist', 'day', '18:00')); assert.throws(() => validateRegime('24h', 'night'));
+  assert.throws(() => validateRegime('diarist', 'day', '18:00')); validateRegime('24h', 'night');
   const night = { ...input(), workRegime: '12x36' as const, shift: 'night' as const }; publishAssembly(d, s, night);
   const newPublication = d.published.find(r => r.date === night.date && r.workRegime === '12x36')!.publicationId;
   const newRows = d.published.filter(r => r.publicationId === newPublication);
@@ -52,11 +52,6 @@ test('jornadas individuais são restauradas e mantêm as janelas de cobertura da
   confirmAssemblyRole(d, s, x, 'r0');
   const stored = JSON.parse(JSON.stringify(d)) as typeof d;
   assert.deepEqual(resumeAssembly(stored, s, x).workAssignments, x.workAssignments);
-  const before = structuredClone(stored);
-  const night = { ...x, shift: 'night' as const };
-  assert.throws(() => confirmAssemblyRole(stored, s, night, 'r0'), /Aurora.*iniciam no diurno/);
-  assert.throws(() => publishAssembly(stored, s, night), /iniciam no diurno/);
-  assert.deepEqual(stored, before);
   publishAssembly(stored, s, x);
   const records = stored.published.filter(record => record.publicationId);
   assert.deepEqual(copyPublication(stored, s, records).assembly.workAssignments, x.workAssignments);
@@ -74,6 +69,27 @@ test('jornadas individuais são restauradas e mantêm as janelas de cobertura da
   const midnight = new Date(Date.parse(x.date + 'T07:00:00-03:00') + 20 * 3600000);
   assert.deepEqual(namesAt(midnight.toISOString()), ['u1p0']);
   assert.deepEqual(namesAt(new Date(+midnight + 4 * 3600000).toISOString()), []);
+});
+
+test('24h e diarista iniciadas no noturno mantêm as janelas na virada do ano', () => {
+  const d = seed();
+  const x: Assembly = { ...input(), shift: 'night', workRegime: undefined,
+    selections: { r0: ['u1p0', 'u1p6'] },
+    workAssignments: { u1p0: { workRegime: '24h' }, u1p6: { workRegime: 'diarist', startTime: '09:00' } } };
+  confirmAssemblyRole(d, s, x, 'r0');
+  publishAssembly(d, s, x);
+  d.published = publishedWorkWindows(d.published.filter(row => row.publicationId).map(row => ({ ...row, date: '2026-12-31' })));
+  const namesAt = (iso: string) => {
+    const now = new Date(iso);
+    const clock = saoPauloClock(now);
+    return projectDashboard(d, 'u1', clock.referenceDate, clock.shift, +now)
+      .groups.flatMap(group => group.professionals.map(p => p.id)).sort();
+  };
+  assert.deepEqual(namesAt('2026-12-31T20:59:59-03:00'), ['u1p0']);
+  assert.deepEqual(namesAt('2027-01-01T00:00:00-03:00'), ['u1p0', 'u1p6']);
+  assert.deepEqual(namesAt('2027-01-01T05:00:00-03:00'), ['u1p0']);
+  assert.deepEqual(namesAt('2027-01-01T18:59:59-03:00'), ['u1p0']);
+  assert.deepEqual(namesAt('2027-01-01T19:00:00-03:00'), []);
 });
 
 test('cópia e confirmação de uma escala antiga preservam a jornada cadastrada', () => {

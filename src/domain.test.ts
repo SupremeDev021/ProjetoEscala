@@ -37,12 +37,12 @@ test("cópia parcial preserva origem e destino, valida jornada e registra apenas
   d.schedules.push(existing);
   const before = structuredClone(d);
   const invalid = previewPartialCopy(d, manager, source, target, {
-    u1p0: { workRegime: "12x36" }, u1p6: { workRegime: "diarist", startTime: "09:00" },
+    u1p0: { workRegime: "12x36" }, u1p6: { workRegime: "diarist", startTime: "18:00" },
   });
   assert.equal(invalid.entries[0].duplicate, true);
-  assert.match(invalid.entries[1].issue!, /iniciam no diurno/);
+  assert.match(invalid.entries[1].issue!, /Horário cadastrado/);
   assert.deepEqual(d, before);
-  assert.throws(() => savePartialCopy(d, manager, source, target, { u1p6: { workRegime: "diarist" } }));
+  assert.throws(() => savePartialCopy(d, manager, source, target, { u1p6: { workRegime: "diarist", startTime: "18:00" } }));
   savePartialCopy(d, manager, source, target, { u1p0: { workRegime: "12x36" }, u1p6: { workRegime: "12x36" } });
   const result = resumeAssembly(d, manager, target);
   assert.deepEqual(result.selections.r0, ["u1p0", "u1p6"]);
@@ -85,7 +85,7 @@ test("prévia de equipe lista apenas novas pessoas elegíveis e oferece jornadas
   const additions = teamAdditions(d, manager, input, "u1A");
   assert.deepEqual(additions.map(item => item.professional.id), ["u1p1", "u1p3", "u1p4", "u1p5"]);
   assert.deepEqual(additions[0].assignment, diarist.workAssignment);
-  assert.equal(teamAdditions(d, manager, { ...input, shift: "night" }, "u1A")[0].assignment, undefined);
+  assert.deepEqual(teamAdditions(d, manager, { ...input, shift: "night" }, "u1A")[0].assignment, diarist.workAssignment);
   assert.throws(() => teamAdditions(d, manager, input, "u0A"), /Equipe inválida/);
   assert.deepEqual(d, before);
 });
