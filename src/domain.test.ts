@@ -44,7 +44,6 @@ test("confirmações restauram seleções por contexto sem alterar a publicaçã
   assert.deepEqual(resumeAssembly(reloaded, manager, input).confirmed, { r0: true, r1: true });
   for (const context of [
     { date: "2026-01-01" }, { shift: "night" }, { teamId: "outra-equipe" },
-    { workRegime: "24h" }, { workRegime: "diarist", startTime: "09:00" },
   ] satisfies Partial<Assembly>[]) {
     assert.deepEqual(resumeAssembly(reloaded, manager, { ...input, ...context }).confirmed, {});
   }

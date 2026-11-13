@@ -1,4 +1,4 @@
-import { scheduleWindow } from "../services/workRegimes";
+import { publishedWorkWindows, scheduleWindow } from "../services/workRegimes";
 import { ensureRoleCatalog } from "../imports/cbo";
 import type { Data, Shift } from "../models";
 import { seed } from "../seed";
@@ -115,7 +115,7 @@ export const dashboardRepository: DashboardRepository = {
         !Array.isArray(data.units)
       )
         throw Error("Dados locais indisponíveis.");
-      return ensureRoleCatalog(data);
+      return ensureRoleCatalog({ ...data, published: publishedWorkWindows(data.published) });
     }
     const data = seed();
     data.published = ["2026-11-10", "2026-11-11"].flatMap((date) =>

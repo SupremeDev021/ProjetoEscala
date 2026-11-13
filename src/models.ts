@@ -1,6 +1,10 @@
 import type { IntegrationConfig } from "./integration/configuration";
 import type { ProfessionalMapping } from "./integration/mappings";
 export type WorkRegime = "12x36" | "24h" | "diarist";
+export interface WorkAssignment {
+  workRegime: WorkRegime;
+  startTime?: string;
+}
 export type Shift = "day" | "night";
 export interface Unit {
   id: string;
@@ -52,6 +56,7 @@ export interface Schedule {
   teamId: string;
   roleId: string;
   professionalIds: string[];
+  workAssignments?: Record<string, WorkAssignment>;
   workRegime?: WorkRegime;
   startTime?: string;
   publicationId?: string;
@@ -84,7 +89,10 @@ export interface Data {
   integrationConfigs?: IntegrationConfig[];
   professionalMappings?: ProfessionalMapping[];
   importedRows?: string[];
-  assemblyConfirmations?: Record<string, Record<string, string[]>>;
+  assemblyConfirmations?: Record<string, Record<string, string[] | {
+    professionalIds: string[];
+    workAssignments: Record<string, WorkAssignment>;
+  }>>;
 }
 export interface Session {
   userId: string;
