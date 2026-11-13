@@ -366,7 +366,8 @@ export function publishAssembly(d: Data, s: Session, input: Assembly) {
   if (input.date !== todaySaoPaulo()) throw Error("A montagem deve usar o dia atual de São Paulo.");
   if (!["day", "night"].includes(input.shift) || (input.teamId && !d.teams.some(t => t.id === input.teamId && t.unitId === input.unitId && t.active)))
     throw Error("Equipe ou turno inválido.");
-  const legacyAssignment = input.workAssignments ? undefined : workAssignment(input);
+  const individual = !!input.workAssignments || (input.workRegime === "24h" && input.shift === "night");
+  const legacyAssignment = individual ? undefined : workAssignment(input);
   if (legacyAssignment) validateRegime(legacyAssignment.workRegime, input.shift, legacyAssignment.startTime);
   const roles = d.roles.filter(r => r.active);
   if (!roles.length || roles.some(r => !input.confirmed[r.id])) throw Error("Confirme todos os cargos antes de publicar.");
@@ -381,7 +382,7 @@ export function publishAssembly(d: Data, s: Session, input: Assembly) {
       const old = d.schedules.find(x => key(x) === key(target));
       const published = d.published.find(x => key(x) === key(target));
       return { ...target, id: old?.id || published?.id || crypto.randomUUID(), professionalIds: composition.professionalIds,
-        ...(input.workAssignments && { workAssignments: composition.workAssignments }),
+        ...(individual && { workAssignments: composition.workAssignments }),
         ...legacyAssignment, publicationId,
         status: "published" as const, version: Math.max(old?.version || 0, published?.version || 0) + 1, updatedAt: timestamp };
     });

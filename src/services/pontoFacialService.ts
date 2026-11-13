@@ -38,7 +38,11 @@ export function confirmedProfessionals(records: PunchRecord[], c: ShiftContext, 
     const window = c.windows?.[r.professionalId];
     const begins = window?.start ?? start;
     const ends = window?.end ?? end;
-    return scheduled.has(r.professionalId) && r.unitId === c.unitId && (window ? window.shiftIds.includes(r.shiftId) : r.shiftId === shiftId(c)) && now >= begins && now < ends &&
+    const shiftIds = window?.shiftIds ?? [shiftId(c)];
+    const overnight24h = !!window && ends - begins === 24 * 3600000
+      && c.shift === 'day' && begins === start - 12 * 3600000;
+    const originId = overnight24h ? `${c.unitId}|${new Date(begins).toISOString().slice(0, 10)}|night` : undefined;
+    return scheduled.has(r.professionalId) && r.unitId === c.unitId && (shiftIds.includes(r.shiftId) || r.shiftId === originId) && now >= begins && now < ends &&
       r.received === true && r.validation === 'confirmed' && r.type === 'entry' && timestamp <= now &&
       timestamp >= begins - rules.earlyMinutes * 60000 && timestamp < Math.min(ends, begins + rules.lateMinutes * 60000);
   }).map(r => r.professionalId));

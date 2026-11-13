@@ -29,6 +29,7 @@ import {
   ArrowUpRight,
   ChevronRight,
   ChevronDown,
+  ChevronLeft,
   Search,
   Plus,
   Check,
@@ -737,6 +738,12 @@ function SchedulePage() {
   const guard = (fn: () => void) => dirty ? setPending(() => fn) : fn();
   const parameter = (value: Partial<Assembly>) => guard(() => openAssembly(resumeAssembly(d, s, { ...draft, ...value })));
   const role = roles.find(r => r.id === roleId) || roles[0];
+  const roleIndex = roles.findIndex(r => r.id === role?.id);
+  const selectRole = (id: string) => {
+    setRoleId(id);
+    setSearch("");
+    setRolesOpen(false);
+  };
   const ids = draft.selections[role?.id] || [];
   const all = role ? available(d, s.activeUnitId, role.id) : [];
   const visible = all.filter(p => p.fullName.toLocaleLowerCase().includes(search.toLocaleLowerCase()));
@@ -801,7 +808,9 @@ function SchedulePage() {
         <Field label="DATA DA ESCALA"><div className="readonly">{dateLabel(draft.date)}</div></Field>
         <Field label="Turno"><select aria-label="Turno" value={draft.shift} onChange={e => parameter({ shift: e.target.value as Shift })}><option value="day">Diurno — 07h às 19h</option><option value="night">Noturno — 19h às 07h</option></select></Field>
       </div>
-      {role && <div className="rolearea">
+    </section>
+    {role ? <section className="panel peoplepanel">
+      <div className="rolearea">
         <div className="role-picker" onBlur={e => {
           if (!e.currentTarget.contains(e.relatedTarget)) setRolesOpen(false);
         }} onKeyDown={e => {
@@ -820,17 +829,13 @@ function SchedulePage() {
           {rolesOpen && <ul id="assembly-roles" className="role-options" aria-labelledby="assembly-role-label">
             {roles.map(r => <li key={r.id}>
               <button type="button" aria-current={r.id === role.id ? "true" : undefined} onClick={() => {
-                setRoleId(r.id);
-                setSearch("");
-                setRolesOpen(false);
+                selectRole(r.id);
                 roleTrigger.current?.focus();
               }}>{roleLabel(r)}</button>
             </li>)}
           </ul>}
         </div>
-      </div>}
-    </section>
-    {role ? <section className="panel peoplepanel">
+      </div>
       <div className="sectionheading"><div><h2>{role.name}</h2><p>{ids.length} profissionais selecionados</p></div>
         <button className="btn" disabled={!teams.length} onClick={() => setTeamPicker("")}><Plus size={16} /> Adicionar equipe</button>
       </div>
@@ -862,6 +867,10 @@ function SchedulePage() {
     </section> : <Empty text="Cadastre ao menos um cargo ativo para montar a escala." />}
     </div>
     <div className="savebar"><div>{roles.filter(r => draft.confirmed[r.id]).length} de {roles.length} cargos confirmados</div><div>
+      <div className="role-navigation" aria-label="Navegação de cargos" role="group">
+        <button className="btn" disabled={roleIndex <= 0} onClick={() => selectRole(roles[roleIndex - 1].id)}><ChevronLeft size={16} /> Voltar</button>
+        <button className="btn" disabled={roleIndex < 0 || roleIndex === roles.length - 1} onClick={() => selectRole(roles[roleIndex + 1].id)}>Próximo <ChevronRight size={16} /></button>
+      </div>
       <button className="btn" onClick={() => {
         if (Object.keys(draft.selections).length || Object.keys(draft.confirmed).length) setPending(() => reset);
         else reset();
@@ -899,7 +908,7 @@ function SchedulePage() {
       else setPublish(false);
     }}><p>{unit.name} · {dateLabel(draft.date)} · {shiftLabel(draft.shift)}
       {draft.teamId && ` · Equipe ${d.teams.find(t => t.id === draft.teamId)?.name}`}</p>
-      {includes24h && <p>Os profissionais com jornada de 24 horas também integram o turno noturno.</p>}
+      {includes24h && <p>Os profissionais com jornada de 24 horas também integram {draft.shift === "day" ? "o turno noturno desta data" : "o turno diurno do dia seguinte"}.</p>}
       <ul>{roles.map(r => <li key={r.id}>{r.name}: {draft.selections[r.id]?.length || 0} profissionais</li>)}</ul></Confirm>}
   </div>;
 }
