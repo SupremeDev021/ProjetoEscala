@@ -2295,10 +2295,10 @@ td > svg {
 }
 .assembly-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 720px) minmax(235px, 300px);
-  grid-template-areas: "editor preview";
+  grid-template-columns: minmax(0, 720px) minmax(235px, 1fr);
+  grid-template-areas: "editor preview" "actions .";
   align-items: start;
-  gap: 14px;
+  gap: 12px 14px;
 }
 .assembly-editor {
   grid-area: editor;
@@ -2308,20 +2308,22 @@ td > svg {
   min-width: 0;
   align-self: stretch;
   display: grid;
+  position: relative;
 }
 .assembly-preview[data-open="false"] {
   place-items: center;
-  min-height: 112px;
-  padding: 12px;
+}
+.assembly-preview-launcher {
+  padding: 10px;
   border: 1px dashed #ccdce8;
   border-radius: 10px;
   background: #f7fafc;
 }
-.assembly-preview > button[hidden] {
-  display: none;
-}
 .assembly-preview-panel {
-  align-self: start;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -2369,7 +2371,6 @@ td > svg {
   border-block: 1px solid #e2eaf0;
 }
 .assembly-preview-list {
-  max-height: 360px;
   overflow: auto;
   padding: 10px 12px;
 }
@@ -2398,6 +2399,7 @@ td > svg {
   font-size: 11px;
 }
 .assembly-actions {
+  grid-area: actions;
   min-width: 0;
 }
 .assembly-action-status {
@@ -2427,7 +2429,13 @@ td > svg {
 @media (max-width: 1150px) {
   .assembly-workspace {
     grid-template-columns: minmax(0, 720px);
-    grid-template-areas: "editor" "preview";
+    grid-template-areas: "editor" "actions" "preview";
+  }
+  .assembly-preview-panel {
+    position: static;
+  }
+  .assembly-preview-list {
+    max-height: 360px;
   }
 }
 @media (max-width: 900px) {

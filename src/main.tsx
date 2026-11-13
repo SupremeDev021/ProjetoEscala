@@ -813,11 +813,13 @@ function SchedulePage() {
     {copyNotice && <p role="status" className="callout">{copyNotice}</p>}
     <div className="assembly-workspace">
     <aside className="assembly-preview" data-open={previewOpen}>
-      <button className="btn" ref={previewTrigger} aria-expanded={previewOpen} hidden={previewOpen}
+      <div className="assembly-preview-launcher" hidden={previewOpen}>
+      <button className="btn" ref={previewTrigger} aria-expanded={previewOpen}
         onClick={() => {
           setPreviewOpen(true);
           requestAnimationFrame(() => previewClose.current?.focus());
         }}><Eye size={16} /> Visualizar escala</button>
+      </div>
       {previewOpen && <section id="assembly-preview" className="panel assembly-preview-panel" aria-labelledby="assembly-preview-title">
         <div className="assembly-preview-heading">
           <h2 id="assembly-preview-title">Prévia da escala em montagem</h2>
@@ -907,6 +909,7 @@ function SchedulePage() {
       })}{!visible.length && <Empty text="Nenhum profissional encontrado para este cargo ou pesquisa." />}</div>
       <p className="listnote">Confirmar cargo salva a composição. O dashboard só muda após a publicação final.</p>
     </section> : <Empty text="Cadastre ao menos um cargo ativo para montar a escala." />}
+    </div>
     <div className="assembly-actions">
       <p className="assembly-action-status" role="status">
         {roles.filter(r => draft.confirmed[r.id]).length} de {roles.length} cargos confirmados
@@ -924,7 +927,6 @@ function SchedulePage() {
       <button className="btn" disabled={!role || !isToday || !!draft.confirmed[role.id]} onClick={confirmRole}><Check size={16} /> Confirmar cargo</button>
       {role && <button className="btn primary" disabled={!ready} onClick={() => setPublish(true)}><Send size={16} /> Publicar escala</button>}
     </div></div>
-    </div>
     </div>
     {!isToday && <p className="listnote">Rascunho para {dateLabel(draft.date)}. A confirmação e a publicação ficam disponíveis na data da escala.</p>}
     {teamPicker !== null && <Modal title="Adicionar equipe" onClose={() => setTeamPicker(null)}>
