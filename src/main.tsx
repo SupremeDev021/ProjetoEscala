@@ -793,6 +793,7 @@ function SchedulePage() {
       <Stat icon={<LayoutGrid />} label="Equipes padrão" value={d.teams.filter(t => t.unitId === s.activeUnitId && t.active).length} note="Modelos preservados" />
     </div>
     {copyNotice && <p role="status" className="callout">{copyNotice}</p>}
+    <div className="assembly-editor">
     <section className="panel assembly-context">
       <div className="sectionheading"><h2>Configuração Escala</h2></div>
       <div className="filters">
@@ -859,6 +860,7 @@ function SchedulePage() {
       })}{!visible.length && <Empty text="Nenhum profissional encontrado para este cargo ou pesquisa." />}</div>
       <p className="listnote">Confirmar cargo salva a composição. O dashboard só muda após a publicação final.</p>
     </section> : <Empty text="Cadastre ao menos um cargo ativo para montar a escala." />}
+    </div>
     <div className="savebar"><div>{roles.filter(r => draft.confirmed[r.id]).length} de {roles.length} cargos confirmados</div><div>
       <button className="btn" onClick={() => {
         if (Object.keys(draft.selections).length || Object.keys(draft.confirmed).length) setPending(() => reset);
