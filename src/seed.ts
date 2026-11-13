@@ -124,7 +124,7 @@ export function seed(): Data {
         entityId: "seed",
         action: "Publicar",
         timestamp: "2026-11-06T10:00:00Z",
-        after: "Versão inicial de demonstração publicada.",
+        after: "Versão inicial publicada.",
       },
     ],
   };

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { seed as originalSeed } from "./seed";
+import { resolveLocalSession, startLocalSession } from "./services/localLogin";
 import {
   key,
   saveSchedule,
@@ -28,6 +29,25 @@ function seed() {
   return d;
 }
 const manager = { userId: "gestor", activeUnitId: "u1" };
+test("login local usa o e-mail autorizado, revalida vínculos e encerra sessão revogada", () => {
+  const d = seed();
+  assert.equal(startLocalSession(d)?.userId, "admin");
+  assert.deepEqual(startLocalSession(d, " GESTOR.CERBARRA@EXEMPLO.COM "), manager);
+  assert.equal(startLocalSession(d, "sem.acesso@exemplo.com"), null);
+  const adminSession = startLocalSession(d)!;
+  const account = d.users.find(u => u.id === manager.userId)!;
+  saveAccess(d, adminSession, { ...account, unitIds: ["u1", "u2"] });
+  const alternate = { ...manager, activeUnitId: "u2" };
+  assert.deepEqual(resolveLocalSession(d, alternate), alternate);
+  assert.throws(() => scope(d, { ...manager, activeUnitId: "u3" }));
+  assert.throws(() => saveAccess(d, adminSession, { ...account, id: "duplicado" }), /já possui/);
+  saveAccess(d, adminSession, { ...account, unitIds: ["u2"] });
+  assert.deepEqual(resolveLocalSession(d, manager), alternate);
+  saveAccess(d, adminSession, { ...account, active: false });
+  assert.equal(resolveLocalSession(d, manager), null);
+  assert.equal(startLocalSession(d, account.email), null);
+  assert.equal(d.events[0].action, "Revogar");
+});
 test("cópia parcial preserva origem e destino, valida jornada e registra apenas inclusões", () => {
   const d = seed();
   const source = d.published.filter(r => r.unitId === "u1" && r.shift === "day" && r.roleId === "r0");

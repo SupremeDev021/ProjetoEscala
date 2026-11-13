@@ -1,4 +1,5 @@
 import { validateRegime, workAssignment } from "./services/workRegimes";
+import { normalizeEmail } from "./services/localLogin";
 import type {
   Data,
   Session,
@@ -256,16 +257,20 @@ export function saveUnit(d: Data, s: Session, u: Unit) {
 }
 export function saveAccess(d: Data, s: Session, u: UserAccess) {
   admin(d, s);
+  u = { ...u, email: normalizeEmail(u.email), unitIds: [...new Set(u.unitIds)] };
   if (
     !/^[^@\s]+@exemplo\.com$/.test(u.email) ||
     !u.displayName.trim() ||
-    !u.unitIds.length ||
-    u.unitIds.some((id) => !d.units.some((x) => x.id === id && x.active))
+    !["global_admin", "unit_manager"].includes(u.role) ||
+    (u.active && (!u.unitIds.length ||
+    u.unitIds.some((id) => !d.units.some((x) => x.id === id && x.active))))
   )
     throw Error("Use um e-mail @exemplo.com, nome e unidade ativa.");
   if (u.id === s.userId && !u.active)
     throw Error("Não é possível revogar o perfil ativo.");
   const old = d.users.find((x) => x.id === u.id);
+  if (d.users.some(x => x.id !== u.id && normalizeEmail(x.email) === u.email))
+    throw Error("Este e-mail já possui um cadastro de acesso.");
   d.users = d.users.filter((x) => x.id !== u.id);
   d.users.push(u);
   event(d, s, "Acesso", u.id, u.active ? "Autorizar" : "Revogar", old, u);

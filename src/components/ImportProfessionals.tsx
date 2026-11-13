@@ -21,7 +21,7 @@ export function ImportProfessionals({ d, s, change }: Props) {
   const decide = (id: string, decision: Partial<ImportDecision>) => { setDecisions(x => ({ ...x, [id]: { ...(x[id] || { action: 'skip' as const }), ...decision } })); setConfirm(false); };
   return <section className="panel integration-panel">
     <h2>Prévia de importação · CER BARRA</h2>
-    <p className="callout">Somente dados fictícios nesta demonstração. Não cole nem carregue a listagem real: não há autenticação ou backend seguros. CPF, CNS e EQUIPE não são importados. A origem nunca altera equipes ou escalas.</p>
+    <p className="callout">Use somente dados fictícios. CPF, CNS e EQUIPE ficam fora da importação.</p>
     {import.meta.env.DEV && <label className="field"><span>CSV/TSV de teste fictício (NOME, CBO e CARGO opcional)</span><textarea rows={7} value={text} onChange={e => { setText(e.target.value); setSource(null); setConfirm(false); }} /></label>}
     <button className="btn" onClick={() => { try { const parsed = parseImport(import.meta.env.DEV ? text : fictionalImport, crypto.randomUUID()); setSource(parsed); setText(fictionalImport); setDecisions({}); setConfirm(false); setError(''); setResult(''); } catch (e) { setError((e as Error).message); } }}>Preparar prévia fictícia</button>
     {error && <p role="alert" className="error">{error}</p>}

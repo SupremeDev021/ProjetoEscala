@@ -1,6 +1,8 @@
 import { IntegrationPage } from "./components/IntegrationPage";
 import { ensureRoleCatalog } from "./imports/cbo";
 import { regimeLabel, validateRegime, workAssignment, workRegimes } from "./services/workRegimes";
+import logo from "../copy-of-untitled-design-11-.webp";
+import { authorizedUnits, resolveLocalSession, startLocalSession } from "./services/localLogin";
 import React, {
   useState,
   useEffect,
@@ -114,7 +116,7 @@ type Ctx = {
   unit: Unit;
   change: (f: (d: Data) => void, msg?: string) => boolean;
   setUnit: (id: string) => void;
-  login: (role: string) => void;
+  login: () => boolean;
   logout: () => void;
   toast: (v: string) => void;
 };
@@ -122,7 +124,7 @@ const Context = createContext<Ctx>(null!);
 const useApp = () => useContext(Context);
 function App() {
   const [d, setD] = useState(load);
-  const [s, setS] = useState<Session>(() => {
+  const [storedSession, setS] = useState<Session>(() => {
     try {
       return (
         JSON.parse(sessionStorage.getItem("rio-session") || "null") || {
@@ -135,12 +137,15 @@ function App() {
     }
   });
   const [notice, setNotice] = useState("");
+  const s = resolveLocalSession(d, storedSession) || { userId: "", activeUnitId: "" };
   useEffect(() => {
-    sessionStorage.setItem("rio-session", JSON.stringify(s));
-  }, [s]);
+    if (s.userId) sessionStorage.setItem("rio-session", JSON.stringify(s));
+    else sessionStorage.removeItem("rio-session");
+    if (s.userId !== storedSession.userId || s.activeUnitId !== storedSession.activeUnitId) setS(s);
+  }, [s.userId, s.activeUnitId, storedSession]);
   useEffect(() => {
     const fn = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setD(load());
+      if (e.key === STORAGE_KEY || e.key === null) setD(load());
     };
     window.addEventListener("storage", fn);
     return () => window.removeEventListener("storage", fn);
@@ -155,7 +160,7 @@ function App() {
   const unit = d.units.find((u) => u.id === s.activeUnitId)!;
   const change = (
     f: (x: Data) => void,
-    msg = "Alterações salvas na demonstração.",
+    msg = "Alterações salvas.",
   ) => {
     try {
       const next = structuredClone(d);
@@ -169,23 +174,13 @@ function App() {
       return false;
     }
   };
-  const login = (role: string) => {
-    const u = d.users.find(
-      (u) =>
-        u.role === role &&
-        u.active &&
-        u.unitIds.some((id) => d.units.some((x) => x.id === id && x.active)),
-    );
-    if (!u) {
-      setNotice("Nenhum perfil ativo disponível. Restaure a demonstração.");
-      return;
-    }
-    setS({
-      userId: u.id,
-      activeUnitId: u.unitIds.find((id) =>
-        d.units.some((x) => x.id === id && x.active),
-      )!,
-    });
+  const login = () => {
+    const data = load();
+    const next = startLocalSession(data, import.meta.env.DEV ? import.meta.env.VITE_LOCAL_GOOGLE_EMAIL : undefined);
+    if (!next) return false;
+    setD(data);
+    setS(next);
+    return true;
   };
   return (
     <Context.Provider
@@ -197,8 +192,7 @@ function App() {
         change,
         setUnit: (id) => {
           if (
-            user?.role === "global_admin" &&
-            d.units.some((u) => u.id === id && u.active)
+            user && authorizedUnits(d, user).some(u => u.id === id)
           )
             setS({ ...s, activeUnitId: id });
         },
@@ -287,7 +281,7 @@ function Modal({
     >
       <header>
         <div>
-          <span className="eyebrow">RIO SAÚDE · DEMONSTRAÇÃO</span>
+          <span className="eyebrow">RIO SAÚDE</span>
           <h2>{title}</h2>
         </div>
         <button className="iconbtn" aria-label="Fechar modal" onClick={onClose}>
@@ -328,24 +322,23 @@ function Restore() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button className="restore" onClick={() => setOpen(true)}>
+      <button className="restore" title="Restaurar dados locais" aria-label="Restaurar dados locais" onClick={() => setOpen(true)}>
         <RotateCcw size={15} />
-        Restaurar demonstração
+        Restaurar dados locais
       </button>
       {open && (
         <Confirm
-          title="Restaurar demonstração?"
+          title="Restaurar dados locais?"
           onClose={() => setOpen(false)}
           onConfirm={() => {
             localStorage.removeItem(STORAGE_KEY);
             sessionStorage.removeItem("rio-session");
             logout();
-            toast("Demonstração restaurada.");
+            toast("Dados locais restaurados.");
             window.location.assign(baseUrl);
           }}
         >
-          Todos os dados locais serão substituídos pelo seed original. Esta ação
-          remove as alterações feitas nesta demonstração.
+          Os dados locais serão substituídos pelos registros iniciais.
         </Confirm>
       )}
     </>
@@ -354,93 +347,26 @@ function Restore() {
 function Login() {
   const { login, user } = useApp();
   const nav = useNavigate();
-  return (
-    <div className="login">
-      <div className="loginart">
-        <div className="brand">
-          <span className="brandicon">
-            <Activity />
-          </span>
-          <span>
-            Rio Saúde<small>Protótipo de Escalas</small>
-          </span>
-        </div>
-        <Badge tone="cyan">DEMONSTRAÇÃO</Badge>
-        <div>
-          <span className="eyebrow">MAIS ORGANIZAÇÃO. MAIS CUIDADO.</span>
-          <h1>
-            Uma nova forma
-            <br />
-            de planejar
-            <br />
-            <em>quem cuida.</em>
-          </h1>
-          <p>
-            Equipes, profissionais e escalas em um só lugar.
-            <br />
-            Um fluxo simples para uma gestão mais próxima.
-          </p>
-          <div className="loginvisual">
-            <CalendarDays size={32} />
-            <div>
-              <b>Clareza para cada plantão</b>
-              <p>Da equipe padrão à escala publicada.</p>
-            </div>
-            <Check size={22} />
-          </div>
-        </div>
-        <small>Identidade ilustrativa · Este não é um portal oficial</small>
-      </div>
-      <div className="loginform">
-        <div>
-          <Badge>AMBIENTE DE APRESENTAÇÃO</Badge>
-          <h2>Bem-vindo ao protótipo</h2>
-          <p>Escolha um perfil para explorar a experiência.</p>
-          <button
-            className="profilecard"
-            onClick={() => {
-              login("global_admin");
-              nav("/escala");
-            }}
-          >
-            <ShieldCheck />
-            <span>
-              <b>Entrar como administrador geral</b>
-              <small>Visão de todas as unidades e gestão de acessos</small>
-            </span>
-            <ChevronRight />
-          </button>
-          <button
-            className="profilecard"
-            onClick={() => {
-              login("unit_manager");
-              nav("/escala");
-            }}
-          >
-            <Building2 />
-            <span>
-              <b>Entrar como gestor de unidade</b>
-              <small>Gestão local · CER BARRA</small>
-            </span>
-            <ChevronRight />
-          </button>
-          {user && <Link to="/escala">Continuar sessão demonstrativa →</Link>}
-          <div className="callout">
-            <Info size={19} />
-            <div>
-              <b>Simulação de acesso - sem autenticação real</b>
-              <p>Acesso demonstrativo, não adequado a dados reais</p>
-            </div>
-          </div>
-          <p className="muted small">
-            Login Google é um objetivo futuro, não implementado no MVP. Todos os
-            nomes e registros desta experiência são fictícios.
-          </p>
-          <Restore />
-        </div>
-      </div>
-    </div>
-  );
+  const [denied, setDenied] = useState(false);
+  if (user) return <Navigate to="/escala" replace />;
+  return <div className="entry-page">
+    <header className="entry-header"><div>
+      <img src={logo} alt="Prefeitura do Rio / Rio Saúde" />
+      <span><b>RIOSAÚDE · DGOVI</b><small>TECNOLOGIA EM SAÚDE</small></span>
+    </div></header>
+    <main className="entry-main">
+      <section className="entry-card" aria-labelledby="entry-title">
+        <h1 id="entry-title">Painel Escala</h1>
+        <button className="btn primary" onClick={() => {
+          if (login()) nav("/escala", { replace: true });
+          else setDenied(true);
+        }}>Entrar com Google</button>
+        <p>Login Google simulado</p>
+        {denied && <p role="alert">Acesso não autorizado. Solicite autorização ao administrador.</p>}
+      </section>
+    </main>
+    <footer>Tecnologia em Saúde · DGOVI · RioSaúde</footer>
+  </div>;
 }
 import { Outlet } from "react-router-dom";
 const navItems = [
@@ -454,6 +380,11 @@ const navItems = [
 function Layout() {
   const { user, unit, d, s, setUnit, logout } = useApp();
   const [mobile, setMobile] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("rio-sidebar-collapsed") === "true");
+  const toggleSidebar = () => {
+    localStorage.setItem("rio-sidebar-collapsed", String(!collapsed));
+    setCollapsed(!collapsed);
+  };
   const [pending, setPending] = useState("");
   const loc = useLocation();
   const nav = useNavigate();
@@ -466,7 +397,7 @@ function Layout() {
   };
   if (!user || !unit?.active) return <Navigate to="/" replace />;
   return (
-    <div className="app">
+    <div className={collapsed ? "app sidebar-collapsed" : "app"}>
       {mobile && (
         <button
           className="sidebarbackdrop"
@@ -482,17 +413,16 @@ function Layout() {
         >
           <X size={18} />
         </button>
-        <Link to="/" className="brand" onClick={(e) => guarded(e, "/")}>
+        <Link to="/escala" className="brand" aria-label="Painel Escala" onClick={(e) => guarded(e, "/escala")}>
           <span className="brandicon">
             <Activity />
           </span>
           <span>
-            Rio Saúde<small>Protótipo de Escalas</small>
+            Rio Saúde<small>Painel Escala</small>
           </span>
         </Link>
-        <span className="demo-label">DEMONSTRAÇÃO</span>
         <div className="navcaption">GESTÃO DE ESCALAS</div>
-        <nav>
+        <nav aria-label="Gestão de escalas">
           {navItems
             .filter(
               ([p]) => p !== "/administracao" || user.role === "global_admin",
@@ -501,14 +431,16 @@ function Layout() {
               <NavLink
                 key={path}
                 to={path}
+                title={name}
+                aria-label={name}
                 onClick={(e) => {
                   guarded(e, path);
                   setMobile(false);
                 }}
               >
                 <Icon size={19} />
-                {name}
-                <ChevronRight size={14} />
+                <span>{name}</span>
+                <ChevronRight className="nav-chevron" size={14} />
               </NavLink>
             ))}
         </nav>
@@ -517,20 +449,22 @@ function Layout() {
             <Monitor size={23} />
             <b>Escalas em tempo real</b>
             <p>Veja as versões publicadas em um painel independente.</p>
-            <a href={dashboardUrl} target="_blank" rel="noreferrer">
-              Abrir dashboard <ArrowUpRight size={16} />
+            <a href={dashboardUrl} target="_blank" rel="noreferrer" aria-label="Abrir dashboard" title="Abrir dashboard">
+              <span>Abrir dashboard</span> <ArrowUpRight size={16} />
             </a>
           </div>
-          <Restore />
-          <small>Protótipo - não utilizar para operação real</small>
+          {user.role === "global_admin" && <Restore />}
         </div>
       </aside>
       <div className="workspace">
         <header className="topbar">
           <div className="breadcrumb">
+            <button className="iconbtn desktop-sidebar-toggle" aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+              aria-expanded={!collapsed} onClick={toggleSidebar}><Menu size={19} /></button>
             <button
               className="iconbtn mobiletoggle"
               aria-label="Abrir navegação"
+              aria-expanded={mobile}
               onClick={() => setMobile(!mobile)}
             >
               <Menu />
@@ -541,7 +475,7 @@ function Layout() {
           </div>
           <div className="topactions">
             <Building2 size={17} />
-            {user.role === "global_admin" ? (
+            {authorizedUnits(d, user).length > 1 ? (
               <select
                 aria-label="Unidade ativa"
                 value={s.activeUnitId}
@@ -551,8 +485,7 @@ function Layout() {
                   } else setUnit(e.target.value);
                 }}
               >
-                {d.units
-                  .filter((u) => u.active)
+                {authorizedUnits(d, user)
                   .map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name}
@@ -580,8 +513,8 @@ function Layout() {
             </div>
             <button
               className="iconbtn"
-              title="Alternar perfil / sair"
-              aria-label="Alternar perfil"
+              title="Sair"
+              aria-label="Sair"
               onClick={() => {
                 if (dirty()) setPending("logout");
                 else {
@@ -597,10 +530,6 @@ function Layout() {
         <main>
           <Outlet />
         </main>
-        <footer className="appfooter">
-          <span>Simulação de acesso - sem autenticação real</span>
-          <span>Acesso demonstrativo, não adequado a dados reais</span>
-        </footer>
       </div>
       {pending && (
         <Confirm
@@ -803,11 +732,11 @@ function SchedulePage() {
   const previewRoles = roles.filter(r => draft.selections[r.id]?.length);
   const previewCount = previewRoles.reduce((total, r) => total + draft.selections[r.id].length, 0);
   return <div data-dirty={dirty}>
-    <PageTitle eyebrow="PLANEJAMENTO ASSISTENCIAL · DADOS FICTÍCIOS" title="Montagem de escala" subtitle="Confirme cada cargo e publique o plantão completo ao final.">
+    <PageTitle eyebrow="PLANEJAMENTO ASSISTENCIAL" title="Montagem de escala" subtitle="Confirme cada cargo e publique o plantão completo ao final.">
       <a className="btn" href={dashboardUrl} target="_blank" rel="noreferrer"><Monitor size={17} /> Abrir dashboard</a>
     </PageTitle>
     <div className="stats assemblystats">
-      <Stat icon={<Building2 />} label="Unidade em gestão" value={unit.name} note="Unidade fictícia de demonstração" />
+      <Stat icon={<Building2 />} label="Unidade em gestão" value={unit.name} note="Unidade ativa" />
       <Stat icon={<Users />} label="Profissionais ativos" value={available(d, s.activeUnitId).length} note="Disponíveis para compor escalas" />
     </div>
     {copyNotice && <p role="status" className="callout">{copyNotice}</p>}
@@ -1596,7 +1525,7 @@ function HistoryPage() {
             ? "Histórico global"
             : "Histórico da unidade"
         }
-        subtitle="Cada mudança tem uma história. Acompanhe o que aconteceu na demonstração."
+        subtitle="Consulte publicações e alterações registradas."
       />
       {user.role === "global_admin" && (
         <div className="tablefilters">
@@ -1663,7 +1592,7 @@ function HistoryPage() {
                     ? "Uma nova versão foi disponibilizada no dashboard."
                     : e.entity === "Profissional"
                       ? "Cadastro atualizado na simulação. Registros anteriores preservados."
-                      : "Alteração registrada no estado local da demonstração."}
+                      : "Alteração registrada no histórico."}
                 </small>
               </div>
               <div className="rowactions">
@@ -1792,6 +1721,7 @@ function Snapshot({ value }: { value: unknown }) {
 function Administration() {
   const { d, s, user, change } = useApp();
   const [tab, setTab] = useState("units");
+  const [accessUnit, setAccessUnit] = useState("");
   const [unit, setUnit] = useState<Unit | null>(null);
   const [access, setAccess] = useState<UserAccess | null>(null);
   const [confirm, setConfirm] = useState<UserAccess | null>(null);
@@ -1799,7 +1729,7 @@ function Administration() {
     return (
       <section className="panel denied">
         <ShieldCheck size={36} />
-        <h1>Acesso restrito na simulação</h1>
+        <h1>Acesso restrito</h1>
         <p>Esta página está disponível apenas para o administrador geral.</p>
         <Link to="/escala" className="btn primary">
           Voltar à escala
@@ -1842,7 +1772,7 @@ function Administration() {
             <h2>
               {tab === "units" ? "Unidades fictícias" : "Associações de acesso"}
             </h2>
-            <p>Gerenciamento exclusivamente demonstrativo</p>
+
           </div>
           <button
             className="btn primary"
@@ -1863,6 +1793,12 @@ function Administration() {
             {tab === "units" ? "Cadastrar unidade" : "Autorizar usuário"}
           </button>
         </div>
+        {tab === "users" && <div className="tablefilters">
+          <select aria-label="Filtrar acessos por unidade" value={accessUnit} onChange={e => setAccessUnit(e.target.value)}>
+            <option value="">Todas as unidades</option>
+            {d.units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </div>}
         <div className="tablewrap">
           {tab === "units" ? (
             <table>
@@ -1909,7 +1845,7 @@ function Administration() {
                 </tr>
               </thead>
               <tbody>
-                {d.users.map((u) => (
+                {d.users.filter(u => !accessUnit || u.role === "global_admin" || u.unitIds.includes(accessUnit)).map((u) => (
                   <tr key={u.id}>
                     <td>
                       <b>{u.displayName}</b>
@@ -1921,7 +1857,7 @@ function Administration() {
                         : "Gestor de unidade"}
                     </td>
                     <td>
-                      {u.unitIds
+                      {u.role === "global_admin" ? "Todas as unidades" : u.unitIds
                         .map((id) => d.units.find((x) => x.id === id)?.name)
                         .join(", ")}
                     </td>
@@ -2006,7 +1942,7 @@ function Administration() {
       )}
       {access && (
         <Modal
-          title="Autorizar usuário demonstrativo"
+          title="Autorizar usuário"
           onClose={() => setAccess(null)}
         >
           <form
@@ -2055,26 +1991,18 @@ function Administration() {
                   <option value="global_admin">Administrador geral</option>
                 </select>
               </Field>
-              <Field label="Unidade vinculada">
-                <select
-                  disabled={access.role === "global_admin"}
-                  value={access.unitIds[0] || ""}
-                  onChange={(e) =>
-                    setAccess({ ...access, unitIds: [e.target.value] })
-                  }
-                >
-                  {d.units
-                    .filter((u) => u.active)
-                    .map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name}
-                      </option>
-                    ))}
-                </select>
-              </Field>
+              <fieldset className="access-units">
+                <legend>Unidades vinculadas</legend>
+                {d.units.filter(u => u.active).map(u => <label className="checklabel" key={u.id}>
+                  <input type="checkbox" checked={access.unitIds.includes(u.id)}
+                    disabled={access.role === "global_admin"}
+                    onChange={e => setAccess({ ...access, unitIds: e.target.checked
+                      ? [...access.unitIds, u.id] : access.unitIds.filter(id => id !== u.id) })} />
+                  {u.name}
+                </label>)}
+              </fieldset>
               <p className="muted small">
-                Associação visual na simulação. Não envia e-mails e não cria
-                autenticação real.
+                Use somente e-mails fictícios.
               </p>
             </div>
             <footer>
@@ -2104,7 +2032,7 @@ function Administration() {
           }}
         >
           {confirm.email}
-          <p>A alteração afeta apenas o perfil fictício nesta demonstração.</p>
+          <p>A alteração será registrada no histórico.</p>
         </Confirm>
       )}
     </>

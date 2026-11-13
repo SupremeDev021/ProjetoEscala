@@ -41,7 +41,7 @@ export function RoleCarousel({
             ? 3
             : 4;
   };
-  const ordered = [...groups].sort(
+  const ordered = groups.filter(group => group.professionals.length > 0).sort(
     (a, b) => rank(a.role.name) - rank(b.role.name),
   );
   const [index, setIndex] = useState(0);
@@ -112,7 +112,7 @@ export function RoleCarousel({
   if (!group)
     return (
       <section className="rs-empty">
-        Nenhuma função cadastrada para esta unidade.
+        Nenhum profissional escalado para este plantão
       </section>
     );
   const people = group.professionals.slice(
@@ -180,7 +180,6 @@ export function RoleCarousel({
             </small>
           </span>
         </header>
-        {people.length ? (
           <ol
             className={
               "rs-people " +
@@ -200,17 +199,6 @@ export function RoleCarousel({
               </li>
             ))}
           </ol>
-        ) : (
-          <div className="rs-empty">
-            <Users size={27} />
-            <p>Nenhum profissional escalado</p>
-            <small>
-              {group.state === "missing"
-                ? "Sem escala publicada para esta função."
-                : "Escala publicada sem profissionais."}
-            </small>
-          </div>
-        )}
       </article>
       <nav className="rs-navigation" aria-label="Navegação dos slides">
         <div className="rs-slide-position">

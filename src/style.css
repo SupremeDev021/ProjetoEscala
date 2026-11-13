@@ -2725,3 +2725,108 @@ td > svg {
   outline: 2px solid #087dc0;
   outline-offset: -2px;
 }
+.entry-page {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100dvh;
+  background: #eaf0f4;
+  color: #123152;
+}
+.entry-header {
+  background: #123152;
+  border-bottom: 3px solid #36a6dc;
+  color: white;
+}
+.entry-header > div {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: 7px 20px;
+}
+.entry-header img {
+  width: 84px;
+  height: 49px;
+  object-fit: contain;
+}
+.entry-header span {
+  border-left: 1px solid #7392ac;
+  padding-left: 14px;
+}
+.entry-header small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: .08em;
+  color: #c8dfed;
+}
+.entry-main {
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+.entry-card {
+  width: min(100%, 410px);
+  padding: clamp(20px, 5vw, 30px);
+  border: 1px solid #d6e1ec;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 15px #1231520d;
+}
+.entry-card h1 {
+  margin: 0 0 20px;
+  font-size: clamp(24px, 5vw, 30px);
+}
+.entry-card .btn {
+  width: 100%;
+  justify-content: center;
+  background: #123152;
+}
+.entry-card p,
+.entry-page footer {
+  margin: 12px 0 0;
+  color: #4c657b;
+  font-size: 12px;
+}
+.entry-card [role="alert"] {
+  color: #9e2929;
+}
+.entry-page footer {
+  padding: 12px 16px 18px;
+  text-align: center;
+}
+.access-units {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #d6e1ec;
+  border-radius: 6px;
+}
+@media (min-width: 651px) {
+  .sidebar-collapsed .sidebar {
+    width: 68px;
+    padding-inline: 10px;
+  }
+  .sidebar-collapsed .workspace {
+    margin-left: 68px;
+    width: calc(100% - 68px);
+  }
+  .sidebar-collapsed .sidebar :is(.brand > span:last-child, .navcaption, nav a > span, .nav-chevron, .dashboardlink > :not(a), .dashboardlink a span) {
+    display: none;
+  }
+  .sidebar-collapsed .sidebar :is(nav a, .brand, .dashboardlink a, .restore) {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .sidebar-collapsed .sidebar .dashboardlink {
+    padding: 6px;
+  }
+  .sidebar-collapsed .sidebar .restore {
+    font-size: 0;
+    gap: 0;
+  }
+}
+@media (max-width: 650px) {
+  .desktop-sidebar-toggle {
+    display: none;
+  }
+}

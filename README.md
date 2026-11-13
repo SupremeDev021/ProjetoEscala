@@ -63,7 +63,7 @@ A chave da escala é `unidade + data + turno + equipe + cargo`. Salvar substitui
 
 Profissional inativo deixa de ser oferecido para novas seleções, mas permanece nas escalas já salvas. O cargo de um profissional com escalas vinculadas não pode ser alterado por este MVP, para não reclassificar retroativamente os registros. A composição de equipes é independente das ocorrências. Novas unidades começam sem profissionais nem equipes, que podem ser criados nas telas correspondentes.
 
-Dados são mantidos em React e, para conveniência, em `localStorage` na chave `rio-escalas-demo-v1`; o perfil demonstrativo fica em `sessionStorage`. Não há garantia de persistência, concorrência ou recuperação: abas administrativas simultâneas podem sobrescrever alterações. A restauração é local ao navegador. O botão de entrada escolhe um perfil ativo de cada tipo; associações adicionais são registros demonstrativos, não contas autenticáveis.
+Dados são mantidos em React e em `localStorage` na chave `rio-escalas-demo-v1`. A sessão local fica em `sessionStorage`. Não há garantia de persistência, concorrência ou recuperação: abas administrativas simultâneas podem sobrescrever alterações. A restauração é local ao navegador.
 
 Os bloqueios de rota, seletor e domínio são **ilustrativos**. Todo o estado do cliente pode ser inspecionado ou alterado. Não há backend, banco, credencial, autenticação, comunicação clínica, integração hospitalar, Google Sheets, OAuth, Supabase ou API externa. O frontend não envia os dados da demonstração a serviços externos.
 
@@ -103,6 +103,12 @@ O dashboard externo é independente das telas administrativas, que foram preserv
 A interface `DashboardRepository` permite substituir o carregamento local por uma API sem reescrever os cartões. Na integração futura, esse endpoint deve entregar somente publicações autorizadas para a unidade; Supabase/PostgreSQL/RLS e autenticação continuam fora do MVP. O painel de demonstração deve ser removido ou desabilitado na versão de produção.
 
 `npm test` executa 31 testes, incluindo viradas exatas, madrugada/ano/mês, cargos, unidades, indicadores, deduplicação, rascunhos, estados vazios e as regressões administrativas. A interface foi verificada com Chromium em desktop, tablet, celular e modo TV, incluindo tela cheia, relógio automático, retorno à aba e estados de falha.
+
+## Login Google simulado
+
+O botão **Entrar com Google** inicia uma sessão local com a conta fictícia `admin@exemplo.com`. Em desenvolvimento, defina `VITE_LOCAL_GOOGLE_EMAIL` antes de iniciar `npm run dev`. Use `gestor.cerbarra@exemplo.com` para testar o gestor ou `sem.acesso@exemplo.com` para testar a recusa. Para testar vários vínculos, edite o gestor em **Administração geral → Perfis de acesso**, marque as unidades desejadas e depois entre com a conta do gestor no mesmo navegador.
+
+A aplicação revalida o perfil, os vínculos e a unidade ativa quando o armazenamento local muda. O administrador geral tem acesso a todas as unidades ativas. O gestor só opera nas unidades vinculadas. As autorizações, sessões e registros locais podem ser alterados pelo navegador. Use exclusivamente dados fictícios. A autenticação com OAuth e a autorização efetiva no servidor ficam para uma etapa futura.
 
 ## Dashboard em slides por função
 

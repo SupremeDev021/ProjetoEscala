@@ -13,10 +13,10 @@ export function IntegrationPage({ d, s, change }: Props) {
   const field = (name: keyof typeof config, value: unknown) => setConfig(x => ({ ...x, [name]: value }));
   return <>
     <div className="pagetitle"><div><span className="eyebrow">CONFIGURAÇÃO POR UNIDADE</span><h1>Integração Ponto Facial</h1><p>{d.units.find(u => u.id === s.activeUnitId)?.name} · Preparação Biofinger / Hikvision</p></div></div>
-    <div className="callout"><div><b>{integrationStatus}</b><p>Demonstração local. Habilitar esta configuração não estabelece conexão. Não há backend ou documentação oficial disponível; nenhum equipamento é acessado pelo navegador.</p></div></div>
+    <div className="callout"><div><b>{integrationStatus}</b><p>Habilitar esta configuração não estabelece conexão. Não há backend ou documentação oficial disponível; nenhum equipamento é acessado pelo navegador.</p></div></div>
     <section className="panel integration-panel"><h2>Configuração da unidade</h2>
       <p>Situação: <b>{integrationStatus}</b><br />Última sincronização real: <b>Nunca realizada</b></p>
-      <form onSubmit={e => { e.preventDefault(); change(x => saveConfig(x, s, { ...config, equipmentIds: equipment.split(',').map(x => x.trim()).filter(Boolean) }), 'Configuração demonstrativa salva. A integração continua aguardando backend e documentação.'); }}>
+      <form onSubmit={e => { e.preventDefault(); change(x => saveConfig(x, s, { ...config, equipmentIds: equipment.split(',').map(x => x.trim()).filter(Boolean) }), 'Configuração salva. A integração continua aguardando backend e documentação.'); }}>
         <div className="formgrid">
           <label className="field"><span>Integração habilitada (intenção de configuração)</span><input type="checkbox" checked={config.enabled} onChange={e => field('enabled', e.target.checked)} /></label>
           <label className="field"><span>Provedor</span><input readOnly value="Biofinger" /></label>
@@ -32,11 +32,11 @@ export function IntegrationPage({ d, s, change }: Props) {
           </fieldset>)}
         </div>
         <p>As viradas de 07h/19h são preservadas. Em 24 horas, a marcação de entrada da jornada pode confirmar os dois segmentos; diaristas respeitam a janela de 8 horas.</p>
-        <button className="btn primary">Salvar configuração demonstrativa</button>
+        <button className="btn primary">Salvar configuração</button>
       </form>
     </section>
     <section className="panel integration-panel"><h2>Relacionar profissionais ao Biofinger</h2><p>Relação explícita entre IDs, exclusiva desta unidade. Não associar apenas pelo nome. Não utilize CPF ou CNS.</p>
-      <form className="filters" onSubmit={e => { e.preventDefault(); if (change(x => saveMapping(x, s, { unitId: s.activeUnitId, professionalId, externalProfessionalId: externalId }), 'Relação demonstrativa de identificadores salva.')) setExternal(''); }}>
+      <form className="filters" onSubmit={e => { e.preventDefault(); if (change(x => saveMapping(x, s, { unitId: s.activeUnitId, professionalId, externalProfessionalId: externalId }), 'Relação de identificadores salva.')) setExternal(''); }}>
         <label className="field"><span>Profissional da unidade</span><select required value={professionalId} onChange={e => { setProfessional(e.target.value); setExternal(mappings.find(m => m.professionalId === e.target.value)?.externalProfessionalId || ''); }}><option value="">Selecione após conferir a identidade</option>{professionals.map(p => <option key={p.id} value={p.id}>{p.fullName} · ID interno: {p.id}</option>)}</select></label>
         <label className="field"><span>Identificador no Biofinger</span><input required maxLength={80} value={externalId} autoComplete="off" onChange={e => setExternal(e.target.value)} /></label>
         <button className="btn primary">Salvar relação</button>

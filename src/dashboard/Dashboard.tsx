@@ -241,14 +241,6 @@ export function DashboardPage() {
         ) : (
           result && (
             <>
-              {result.state === "missing" && (
-                <div className="pd-empty-banner">
-                  <div>
-                    <b>Nenhuma escala publicada para este plantão</b>
-                    <p>Aguardando publicação para {unit.name}.</p>
-                  </div>
-                </div>
-              )}
               <RoleCarousel
                 key={`${unit.id}|${clock.referenceDate}|${clock.shift}`}
                 groups={result.groups}
