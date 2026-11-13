@@ -312,7 +312,8 @@ export function resumeAssembly(d: Data, s: Session, input: Assembly): Assembly {
     for (const id of selections[roleId]) {
       workAssignments[id] = workAssignment(Array.isArray(composition) ? input : composition.workAssignments[id] || {});
     }
-    confirmed[roleId] = selections[roleId].length === ids.length;
+    confirmed[roleId] = selections[roleId].length === ids.length
+      && (Array.isArray(composition) || composition.confirmed !== false);
   }
   return { ...input, workRegime: undefined, startTime: undefined, selections, workAssignments, confirmed };
 }
@@ -343,9 +344,6 @@ export function confirmAssemblyRole(d: Data, s: Session, input: Assembly, roleId
   if (!["day", "night"].includes(input.shift)) throw Error("Turno inválido.");
   const composition = roleComposition(d, input, roleId);
   const confirmations = d.assemblyConfirmations ??= {};
-  for (const context of Object.keys(confirmations)) {
-    if (JSON.parse(context)[1] !== input.date) delete confirmations[context];
-  }
   const context = assemblyContext(input);
   if (!confirmations[context]) {
     confirmations[context] = Object.fromEntries(Object.keys(input.confirmed)
@@ -433,4 +431,83 @@ export function copyPublication(d: Data, s: Session, records: Schedule[]) {
     selections[record.roleId] = [...new Set([...(selections[record.roleId] || []), ...ids])];
   }
   return { assembly: { unitId: first.unitId, date: todaySaoPaulo(), shift: first.workRegime === "24h" ? "day" : first.shift, teamId: first.teamId, workRegime: first.workRegime || "12x36", startTime: first.startTime, selections, workAssignments, confirmed: {} } as Assembly, ignored: [...ignored] };
+}
+
+export function publicationPeople(records: Schedule[]) {
+  const people = new Map<string, { id: string; roleId: string; assignment: WorkAssignment }>();
+  for (const record of records) {
+    for (const id of record.professionalIds) {
+      if (!people.has(id)) people.set(id, { id, roleId: record.roleId, assignment: workAssignment(record.workAssignments?.[id] || record) });
+    }
+  }
+  return [...people.values()];
+}
+
+type PartialCopyEntry = { id: string; roleId?: string; assignment?: WorkAssignment; issue?: string; duplicate?: boolean };
+
+export function previewPartialCopy(d: Data, s: Session, source: Schedule[], target: Assembly, selected: Record<string, WorkAssignment>) {
+  scope(d, s, target.unitId);
+  if (target.teamId && !d.teams.some(t => t.id === target.teamId && t.unitId === target.unitId && t.active))
+    throw Error("Equipe de destino inválida.");
+  if (!source.length) throw Error("Publicação vazia.");
+  for (const record of source) scope(d, { ...s, activeUnitId: record.unitId }, record.unitId);
+  const parsed = new Date(target.date + "T00:00:00Z");
+  if (Number.isNaN(+parsed) || parsed.toISOString().slice(0, 10) !== target.date || target.date < todaySaoPaulo()
+    || !["day", "night"].includes(target.shift)) throw Error("Escolha a data atual ou futura e um turno válido.");
+  const draft = resumeAssembly(d, s, target);
+  const matching = (record: Schedule) => record.unitId === target.unitId && record.date === target.date
+    && record.shift === target.shift && (record.teamId || undefined) === (target.teamId || undefined);
+  const context = assemblyContext(target);
+  const existing = { ...d.assemblyConfirmations?.[context] };
+  const records = [...d.published.filter(matching), ...d.schedules.filter(matching)];
+  for (const record of records) {
+    if (Object.hasOwn(draft.selections, record.roleId)) continue;
+    existing[record.roleId] = { professionalIds: record.professionalIds,
+      workAssignments: Object.fromEntries(publicationPeople([record]).map(p => [p.id, p.assignment])), confirmed: false };
+  }
+  for (const [roleId, ids] of Object.entries(draft.selections)) {
+    if (!Object.hasOwn(existing, roleId)) existing[roleId] = { professionalIds: ids,
+      workAssignments: Object.fromEntries(ids.map(id => [id, draft.workAssignments![id]])), confirmed: draft.confirmed[roleId] };
+  }
+  for (const [roleId, composition] of Object.entries(existing)) {
+    draft.selections[roleId] = Array.isArray(composition) ? composition : composition.professionalIds;
+  }
+  const present = new Set(Object.values(draft.selections).flat());
+  const sourcePeople = new Map(publicationPeople(source).map(p => [p.id, p]));
+  const eligible = new Map(available(d, target.unitId).map(p => [p.id, p]));
+  return {
+    existing,
+    entries: Object.entries(selected).map(([id, assignment]): PartialCopyEntry => {
+      const person = sourcePeople.get(id);
+      const professional = eligible.get(id);
+      if (!person || !professional || professional.roleId !== person.roleId || !d.roles.some(r => r.id === person.roleId && r.active))
+        return { id, issue: "Sem vínculo elegível para este cargo na unidade de destino." };
+      if (present.has(id)) return { ...person, duplicate: true };
+      try { validateRegime(assignment.workRegime, target.shift, assignment.startTime); }
+      catch (error) { return { ...person, issue: (error as Error).message }; }
+      return { ...person, assignment };
+    }),
+  };
+}
+
+export function savePartialCopy(d: Data, s: Session, source: Schedule[], target: Assembly, selected: Record<string, WorkAssignment>) {
+  const { existing, entries } = previewPartialCopy(d, s, source, target, selected);
+  if (entries.some(p => p.issue)) throw Error("Revise as incompatibilidades da cópia.");
+  const additions = entries.filter(p => !p.duplicate);
+  if (!additions.length) throw Error("Selecione ao menos um profissional que ainda não esteja no destino.");
+  const next = structuredClone(existing);
+  for (const entry of additions) {
+    if (!entry.roleId || !entry.assignment) continue;
+    const previous = next[entry.roleId];
+    next[entry.roleId] = {
+      professionalIds: [...(Array.isArray(previous) ? previous : previous?.professionalIds || []), entry.id],
+      workAssignments: { ...(Array.isArray(previous) ? {} : previous?.workAssignments), [entry.id]: entry.assignment },
+      confirmed: false,
+    };
+  }
+  (d.assemblyConfirmations ??= {})[assemblyContext(target)] = next;
+  event(d, s, "Escala", assemblyContext(target), "Copiar selecionados", undefined, {
+    unitId: target.unitId, date: target.date, shift: target.shift, sourceDate: source[0].date,
+    sourcePublicationId: source[0].publicationId, professionalIds: additions.map(p => p.id),
+  });
 }
