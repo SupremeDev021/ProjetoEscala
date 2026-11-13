@@ -106,7 +106,7 @@ A interface `DashboardRepository` permite substituir o carregamento local por um
 
 ## Login Google simulado
 
-Uma instalação nova começa com unidades, catálogo e contas locais de teste, sem profissionais, equipes ou escalas de exemplo. Em **Administração geral → Limpeza de dados de exemplo**, revise a prévia, exporte o JSON de recuperação e confirme a exclusão. Registros alterados, de origem incerta ou necessários para referências existentes são preservados. O JSON pode conter dados locais e deve permanecer sob controle de quem administra a instalação.
+Uma instalação nova carrega o cadastro público autorizado de profissionais e seus cargos por unidade. O cadastro inicial não contém equipes nem plantões. Em **Administração geral → Limpeza de dados de exemplo**, revise a prévia, exporte o JSON de recuperação e confirme a exclusão. Registros alterados, de origem incerta ou necessários para referências existentes são preservados. O JSON pode conter dados locais e deve permanecer sob controle de quem administra a instalação.
 
 Em **Profissionais**, selecione a unidade antes de preparar a prévia de importação. Exporte cada aba validada como CSV UTF-8 ou cole os campos NOME e CARGO. A gravação pelo importador fica disponível ao executar o projeto em localhost, por exemplo com `npm run dev`. Cada navegador armazena seus próprios dados. A instalação local continua usando login fictício e deve permanecer restrita. A importação não publica escalas.
 

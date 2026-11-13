@@ -1,5 +1,4 @@
 import { IntegrationPage } from "./components/IntegrationPage";
-import { ensureRoleCatalog } from "./imports/cbo";
 import { regimeLabel, validateRegime, workAssignment, workRegimes } from "./services/workRegimes";
 import logo from "../logorsbranco.png";
 import { authorizedUnits, resolveLocalSession, startLocalSession } from "./services/localLogin";
@@ -64,6 +63,7 @@ import type {
   WorkRegime,
 } from "./models";
 import { initialData } from "./initialData";
+import { withPublishedRoster } from "./publishedRoster";
 import { previewLegacyCleanup } from "./legacyCleanup";
 import { ImportProfessionals } from "./components/ImportProfessionals";
 import {
@@ -105,9 +105,9 @@ const shiftLabel = (s: Shift) =>
 function load(): Data {
   try {
     const x = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    if (x?.published && x?.links && x?.users) return ensureRoleCatalog(x);
+    if (x?.published && x?.links && x?.users) return withPublishedRoster(x);
   } catch {}
-  return ensureRoleCatalog(initialData());
+  return withPublishedRoster(initialData());
 }
 type Ctx = {
   d: Data;
