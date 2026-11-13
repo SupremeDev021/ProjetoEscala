@@ -2306,10 +2306,23 @@ td > svg {
 .assembly-preview {
   grid-area: preview;
   min-width: 0;
+  align-self: stretch;
+  display: grid;
+}
+.assembly-preview[data-open="false"] {
+  place-items: center;
+  min-height: 112px;
+  padding: 12px;
+  border: 1px dashed #ccdce8;
+  border-radius: 10px;
+  background: #f7fafc;
+}
+.assembly-preview > button[hidden] {
+  display: none;
 }
 .assembly-preview-panel {
-  margin: 8px 0 0;
-  padding: 12px;
+  align-self: start;
+  margin: 0;
   overflow-wrap: anywhere;
 }
 .assembly-preview-heading {
@@ -2317,19 +2330,72 @@ td > svg {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  padding: 10px 12px;
+  color: #103951;
+  background: #eaf4fa;
+  border-bottom: 1px solid #d9e9f2;
 }
 .assembly-preview-heading .iconbtn {
   flex: none;
 }
-.assembly-preview-panel p {
-  margin: 6px 0;
+.assembly-preview-context {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+}
+.assembly-preview-context > div {
+  padding: 5px 7px;
+  border-radius: 6px;
+  background: #f4f8fb;
+}
+.assembly-preview-context > div:first-child {
+  grid-column: 1 / -1;
+}
+.assembly-preview-context dt {
+  font-size: 11px;
+  color: #587184;
+}
+.assembly-preview-context dd {
+  margin: 0;
+  color: #103951;
+}
+.assembly-preview-count {
+  margin: 0;
+  padding: 6px 12px;
+  background: #f4f8fb;
+  color: #345b71;
+  border-block: 1px solid #e2eaf0;
 }
 .assembly-preview-list {
   max-height: 360px;
   overflow: auto;
+  padding: 10px 12px;
 }
-.assembly-preview-list section {
+.assembly-preview-list > p {
+  margin: 0;
+}
+.roster-group + .roster-group {
   margin-top: 10px;
+}
+.roster-group h3 {
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: #eef5fa;
+  color: #103951;
+  font-size: 13px;
+  font-weight: 700;
+}
+.roster-group .member-list li {
+  padding: 6px 8px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.roster-group .member-list li span + span {
+  color: #345b71;
+  font-size: 11px;
 }
 .assembly-actions {
   min-width: 0;

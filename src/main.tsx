@@ -658,6 +658,13 @@ function Field({
     </label>
   );
 }
+function RosterGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return <section className="roster-group">
+    <h3>{title}</h3>
+    <ul className="member-list">{children}</ul>
+  </section>;
+}
+
 function SchedulePage() {
   const { d, s, unit, change, toast } = useApp();
   const location = useLocation();
@@ -695,6 +702,7 @@ function SchedulePage() {
   const [teamPicker, setTeamPicker] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const previewTrigger = useRef<HTMLButtonElement>(null);
+  const previewClose = useRef<HTMLButtonElement>(null);
   const hasChanges = (id: string) => Object.hasOwn(draft.selections, id) && !draft.confirmed[id];
   const dirty = Object.keys(draft.selections).some(hasChanges);
   const openAssembly = (next: Assembly) => {
@@ -793,6 +801,7 @@ function SchedulePage() {
   const ready = isToday && roles.length > 0 && roles.every(r => draft.confirmed[r.id]) && roles.some(r => draft.selections[r.id]?.length);
   const includes24h = roles.some(r => draft.selections[r.id]?.some(id => draft.workAssignments?.[id]?.workRegime === "24h"));
   const previewRoles = roles.filter(r => draft.selections[r.id]?.length);
+  const previewCount = previewRoles.reduce((total, r) => total + draft.selections[r.id].length, 0);
   return <div data-dirty={dirty}>
     <PageTitle eyebrow="PLANEJAMENTO ASSISTENCIAL · DADOS FICTÍCIOS" title="Montagem de escala" subtitle="Confirme cada cargo e publique o plantão completo ao final.">
       <a className="btn" href={dashboardUrl} target="_blank" rel="noreferrer"><Monitor size={17} /> Abrir dashboard</a>
@@ -803,27 +812,33 @@ function SchedulePage() {
     </div>
     {copyNotice && <p role="status" className="callout">{copyNotice}</p>}
     <div className="assembly-workspace">
-    <aside className="assembly-preview">
-      <button className="btn" ref={previewTrigger} aria-expanded={previewOpen}
-        aria-controls={previewOpen ? "assembly-preview" : undefined}
-        onClick={() => setPreviewOpen(open => !open)}><Eye size={16} /> Visualizar escala</button>
+    <aside className="assembly-preview" data-open={previewOpen}>
+      <button className="btn" ref={previewTrigger} aria-expanded={previewOpen} hidden={previewOpen}
+        onClick={() => {
+          setPreviewOpen(true);
+          requestAnimationFrame(() => previewClose.current?.focus());
+        }}><Eye size={16} /> Visualizar escala</button>
       {previewOpen && <section id="assembly-preview" className="panel assembly-preview-panel" aria-labelledby="assembly-preview-title">
         <div className="assembly-preview-heading">
           <h2 id="assembly-preview-title">Prévia da escala em montagem</h2>
-          <button className="iconbtn" aria-label="Fechar prévia" onClick={() => {
+          <button className="iconbtn" ref={previewClose} aria-label="Fechar prévia" onClick={() => {
             setPreviewOpen(false);
-            previewTrigger.current?.focus();
+            requestAnimationFrame(() => previewTrigger.current?.focus());
           }}><X size={17} /></button>
         </div>
-        <p>{unit.name} · {dateLabel(draft.date)} · {shiftLabel(draft.shift)}</p>
+        <dl className="assembly-preview-context">
+          <div><dt>Unidade</dt><dd>{unit.name}</dd></div>
+          <div><dt>Data da escala</dt><dd>{dateLabel(draft.date)}</dd></div>
+          <div><dt>Turno</dt><dd>{shiftLabel(draft.shift)}</dd></div>
+        </dl>
+        <p className="assembly-preview-count">{previewCount} {previewCount === 1 ? "profissional" : "profissionais"} · {previewRoles.length} {previewRoles.length === 1 ? "cargo" : "cargos"}</p>
         <div className="assembly-preview-list">
-          {previewRoles.length ? previewRoles.map(r => <section key={r.id}>
-            <h3>{r.name}</h3>
-            <ul className="member-list">{draft.selections[r.id].map(id => <li key={id}>
-              <b>{d.professionals.find(p => p.id === id)?.fullName || id}</b>
+          {previewRoles.length ? previewRoles.map(r => <RosterGroup key={r.id} title={r.name}>
+            {draft.selections[r.id].map(id => <li key={id}>
+              <span>{d.professionals.find(p => p.id === id)?.fullName || id}</span>
               <span>{regimeLabel(draft.workAssignments?.[id]?.workRegime)}</span>
-            </li>)}</ul>
-          </section>) : <p>Nenhum profissional selecionado na montagem.</p>}
+            </li>)}
+          </RosterGroup>) : <p>Nenhum profissional selecionado na montagem.</p>}
         </div>
       </section>}
     </aside>
@@ -1262,6 +1277,10 @@ function Teams() {
   const [ids, setIds] = useState<string[]>([]);
   const [turn, setTurn] = useState("");
   const [role, setRole] = useState("");
+  const viewedMembers = view ? d.members.filter(m => m.teamId === view.id)
+    .map(m => ({ ...m, name: d.professionals.find(p => p.id === m.professionalId)?.fullName || m.professionalId }))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")) : [];
+  const viewedRoles = [...new Set(viewedMembers.map(m => m.roleId))];
   const teams = d.teams.filter(
     (t) =>
       t.unitId === s.activeUnitId &&
@@ -1338,12 +1357,9 @@ function Teams() {
       {view && <Modal title={`Equipe ${view.name}`} onClose={() => setView(null)}>
         <div className="modalbody history-members">
           <p>{view.shift ? shiftLabel(view.shift) : "Diurno e noturno"}</p>
-          {d.members.some(m => m.teamId === view.id) ? <ul className="member-list">
-            {d.members.filter(m => m.teamId === view.id)
-              .map(m => ({ ...m, name: d.professionals.find(p => p.id === m.professionalId)?.fullName || m.professionalId }))
-              .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-              .map(m => <li key={m.professionalId}><b>{m.name}</b><span>{d.roles.find(r => r.id === m.roleId)?.name || m.roleId}</span></li>)}
-          </ul> : <Empty text="Esta equipe não tem integrantes." />}
+          {viewedRoles.length ? viewedRoles.map(id => <RosterGroup key={id} title={d.roles.find(r => r.id === id)?.name || id}>
+            {viewedMembers.filter(m => m.roleId === id).map(m => <li key={m.professionalId}><span>{m.name}</span></li>)}
+          </RosterGroup>) : <Empty text="Esta equipe não tem integrantes." />}
         </div>
         <footer>
           <button className="btn" onClick={() => setView(null)}>Fechar</button>
@@ -1511,18 +1527,24 @@ function PublicationModal({ records, mode, close }: {
         </div>
       </>}
       {!people.length && <Empty text="Esta escala não tem profissionais." />}
-      {groups.map(roleId => <section key={roleId} className="history-role">
+      {mode === "view" && groups.map(roleId => <RosterGroup key={roleId} title={d.roles.find(r => r.id === roleId)?.name || roleId}>
+        {people.filter(p => p.roleId === roleId).map(p => <li key={p.id}>
+          <span>{name(p.id)}</span>
+          <span>{regimeLabel(p.assignment.workRegime)}{p.assignment.startTime && ` · ${p.assignment.startTime}`}</span>
+        </li>)}
+      </RosterGroup>)}
+      {mode === "partial" && groups.map(roleId => <section key={roleId} className="history-role">
         <h3>{d.roles.find(r => r.id === roleId)?.name || roleId}</h3>
         <ul className="member-list">{people.filter(p => p.roleId === roleId).map(p => {
           const assignment = selected[p.id];
           const result = preview.find(row => row.id === p.id);
           return <li key={p.id}>
-            {mode === "view" ? <b>{name(p.id)}</b> : <label><input type="checkbox" checked={!!assignment} onChange={e => {
+            <label><input type="checkbox" checked={!!assignment} onChange={e => {
               const next = { ...selected };
               if (e.target.checked) next[p.id] = p.assignment;
               else delete next[p.id];
               setSelected(next);
-            }} /> {name(p.id)}</label>}
+            }} /> {name(p.id)}</label>
             {assignment && !result?.duplicate ? <select aria-label={`Jornada de ${name(p.id)}`} value={assignment.workRegime}
               onChange={e => setSelected({ ...selected, [p.id]: workAssignment({ workRegime: e.target.value as WorkRegime,
                 startTime: p.assignment.startTime }) })}>
