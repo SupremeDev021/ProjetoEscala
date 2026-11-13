@@ -1,20 +1,8 @@
+import { initialData } from "./initialData";
 import type { Data, Schedule } from "./models";
 export const DEMO_DATE = "2026-11-06";
 export function seed(): Data {
-  const units = [
-    "UPA ROCHA MIRANDA",
-    "CER BARRA",
-    "UPA CIDADE DE DEUS",
-    "UPA SEPETIBA",
-  ].map((name, i) => ({ id: `u${i}`, name, active: true }));
-  const roles = [
-    "Médico",
-    "Enfermeiro",
-    "Técnico de Enfermagem",
-    "Maqueiro",
-    "Fisioterapeuta",
-    "Administrativo",
-  ].map((name, i) => ({ id: `r${i}`, name, active: true }));
+  const { units, roles, users } = initialData();
   const first = [
     "Aurora",
     "Bento",
@@ -97,24 +85,7 @@ export function seed(): Data {
     published: structuredClone(
       schedules.filter((s) => s.status === "published"),
     ),
-    users: [
-      {
-        id: "admin",
-        email: "admin@exemplo.com",
-        displayName: "Alex Modelo",
-        role: "global_admin",
-        unitIds: units.map((u) => u.id),
-        active: true,
-      },
-      {
-        id: "gestor",
-        email: "gestor.cerbarra@exemplo.com",
-        displayName: "Marina Exemplo",
-        role: "unit_manager",
-        unitIds: ["u1"],
-        active: true,
-      },
-    ],
+    users,
     events: [
       {
         id: "seed-event",

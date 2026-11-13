@@ -1,7 +1,7 @@
 import { publishedWorkWindows, scheduleWindow } from "../services/workRegimes";
 import { ensureRoleCatalog } from "../imports/cbo";
 import type { Data, Shift } from "../models";
-import { seed } from "../seed";
+import { initialData } from "../initialData";
 import { STORAGE_KEY } from "../domain";
 export const ZONE = "America/Sao_Paulo";
 export function saoPauloClock(now: Date) {
@@ -97,50 +97,14 @@ export function projectDashboard(
       .at(-1),
   };
 }
-export type DataSource = "local" | "example";
-export interface DashboardRepository {
-  load(source: DataSource, revision?: number): Promise<Data>;
-}
-export const dashboardRepository: DashboardRepository = {
-  async load(source, revision = 0) {
-    if (source === "local") {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return ensureRoleCatalog(seed());
-      const data = JSON.parse(raw) as Data;
-      if (
-        !Array.isArray(data.published) ||
-        !Array.isArray(data.roles) ||
-        !Array.isArray(data.links) ||
-        !Array.isArray(data.professionals) ||
-        !Array.isArray(data.units)
-      )
-        throw Error("Dados locais indisponíveis.");
-      return ensureRoleCatalog({ ...data, published: publishedWorkWindows(data.published) });
-    }
-    const data = seed();
-    data.published = ["2026-11-10", "2026-11-11"].flatMap((date) =>
-      data.published.map((s) => ({
-        ...s,
-        id: `${date}-${s.id}`,
-        date,
-        professionalIds:
-          revision && s.shift === "day"
-            ? [
-                ...new Set([
-                  ...s.professionalIds,
-                  ...data.professionals
-                    .filter(
-                      (p) => p.id.startsWith(s.unitId) && p.roleId === s.roleId,
-                    )
-                    .map((p) => p.id),
-                ]),
-              ]
-            : s.professionalIds,
-        updatedAt: revision
-          ? new Date().toISOString()
-          : "2026-11-10T10:00:00-03:00",
-      })),
-    );
-    return data;
+export const dashboardRepository = {
+  async load(): Promise<Data> {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return ensureRoleCatalog(initialData());
+    const data = JSON.parse(raw) as Data;
+    if (!Array.isArray(data.published) || !Array.isArray(data.roles) ||
+        !Array.isArray(data.links) || !Array.isArray(data.professionals) || !Array.isArray(data.units))
+      throw Error("Dados locais indisponíveis.");
+    return ensureRoleCatalog({ ...data, published: publishedWorkWindows(data.published) });
   },
 };

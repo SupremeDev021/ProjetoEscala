@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { seed as originalSeed } from "./seed";
+import { initialData } from "./initialData";
+import { previewLegacyCleanup } from "./legacyCleanup";
 import { resolveLocalSession, startLocalSession } from "./services/localLogin";
 import {
   key,
@@ -29,6 +31,22 @@ function seed() {
   return d;
 }
 const manager = { userId: "gestor", activeUnitId: "u1" };
+test("base inicial vazia e limpeza conservadora preservam alterações e referências do usuário", async () => {
+  const empty = initialData();
+  assert.equal(empty.units.length, 4);
+  assert.equal(empty.professionals.length + empty.teams.length + empty.published.length + empty.events.length, 0);
+  const demo = originalSeed();
+  demo.professionals[0].active = false;
+  const custom = { ...demo.schedules[0], id: "cadastro-local", version: 2 };
+  demo.schedules.push(custom);
+  const { cleaned, counts } = await previewLegacyCleanup(demo);
+  assert.ok(counts.professionals > 0 && counts.published > 0);
+  assert.equal(cleaned.professionals.find(p => p.id === demo.professionals[0].id)?.active, false);
+  assert.deepEqual(cleaned.schedules, [custom]);
+  assert.ok(custom.professionalIds.every(id => cleaned.professionals.some(p => p.id === id)));
+  assert.ok(cleaned.teams.some(t => t.id === custom.teamId));
+  assert.ok(demo.published.length);
+});
 test("login local usa o e-mail autorizado, revalida vínculos e encerra sessão revogada", () => {
   const d = seed();
   assert.equal(startLocalSession(d)?.userId, "admin");

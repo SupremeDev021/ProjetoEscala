@@ -106,6 +106,10 @@ A interface `DashboardRepository` permite substituir o carregamento local por um
 
 ## Login Google simulado
 
+Uma instalação nova começa com unidades, catálogo e contas locais de teste, sem profissionais, equipes ou escalas de exemplo. Em **Administração geral → Limpeza de dados de exemplo**, revise a prévia, exporte o JSON de recuperação e confirme a exclusão. Registros alterados, de origem incerta ou necessários para referências existentes são preservados. O JSON pode conter dados locais e deve permanecer sob controle de quem administra a instalação.
+
+Em **Profissionais**, selecione a unidade antes de preparar a prévia de importação. Exporte cada aba validada como CSV UTF-8 ou cole os campos NOME e CARGO. A gravação pelo importador fica disponível ao executar o projeto em localhost, por exemplo com `npm run dev`. Cada navegador armazena seus próprios dados. A instalação local continua usando login fictício e deve permanecer restrita. A importação não publica escalas.
+
 O botão **Entrar com Google** inicia uma sessão local com a conta fictícia `admin@exemplo.com`. Em desenvolvimento, defina `VITE_LOCAL_GOOGLE_EMAIL` antes de iniciar `npm run dev`. Use `gestor.cerbarra@exemplo.com` para testar o gestor ou `sem.acesso@exemplo.com` para testar a recusa. Para testar vários vínculos, edite o gestor em **Administração geral → Perfis de acesso**, marque as unidades desejadas e depois entre com a conta do gestor no mesmo navegador.
 
 A aplicação revalida o perfil, os vínculos e a unidade ativa quando o armazenamento local muda. O administrador geral tem acesso a todas as unidades ativas. O gestor só opera nas unidades vinculadas. As autorizações, sessões e registros locais podem ser alterados pelo navegador. Use exclusivamente dados fictícios. A autenticação com OAuth e a autorização efetiva no servidor ficam para uma etapa futura.
@@ -156,3 +160,4 @@ Em Profissionais do CER BARRA há uma prévia de importação **fictícia**, com
 A montagem oferece **12×36**, **24 horas** e **diarista de 8 horas** por profissional nos dois turnos. A jornada de 24 horas cobre o turno escolhido e o seguinte. Diaristas preservam o intervalo entre a abertura do turno e o horário cadastrado. Com o padrão existente, iniciam às 08h no diurno ou às 20h no noturno e encerram após 8 horas. Ao copiar uma escala antiga, os profissionais recebem a jornada gravada na origem. Não há geração de recorrência ou cálculo automático de descanso.
 
 Detalhes, contratos, limitações e lista do que falta para conectar: [Integração Biofinger/Hikvision](docs/integracao-biofinger.md). `npm test` inclui as regressões de integração, importação/CBO e jornadas; `npm run build` valida TypeScript e o bundle.
+

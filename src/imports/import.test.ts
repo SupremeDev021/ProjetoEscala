@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { seed } from '../seed';
+
+test('importação por nome e cargo usa o catálogo e separa os lotes por unidade', () => {
+  const d = seed();
+  const session = { userId: 'admin', activeUnitId: 'u2' };
+  const source = parseImport('NOME;CARGO;CPF\nPessoa Nova;Enfermeiro;000\nPessoa Revisar;Cargo desconhecido;000', 'u2:lote', 'cargo');
+  const [ready, review] = previewImport(d, session, source).rows;
+  assert.equal(ready.role, 'Enfermeiro');
+  assert.equal(review.status, 'review');
+  assert.equal(JSON.stringify(source).includes('000'), false);
+  const published = structuredClone(d.published);
+  commitImport(d, session, source, { [ready.rowId]: { action: 'create' } });
+  const person = d.professionals.find(p => p.fullName === 'Pessoa Nova')!;
+  assert.deepEqual(d.links.filter(l => l.professionalId === person.id).map(l => l.unitId), ['u2']);
+  assert.deepEqual(d.published, published);
+  assert.throws(() => commitImport(d, session, source, { [ready.rowId]: { action: 'create' } }));
+});
 import { CBO, classifyCbo, ensureRoleCatalog, normalizedName } from './cbo';
 import { commitImport, parseImport, previewImport } from './professionalImport';
 const s = { userId: 'gestor', activeUnitId: 'u1' };
@@ -28,7 +44,8 @@ test('prévia não grava; importação explícita não altera escalas, modelos o
   assert.equal(totals.created, 1); assert.equal(totals.review, 1);
   assert.deepEqual(d.professionals.slice(0, before.professionals.length), before.professionals); assert.deepEqual(d.schedules, before.schedules); assert.deepEqual(d.published, before.published); assert.deepEqual(d.members, before.members); assert.deepEqual(d.teams, before.teams);
   const saved = structuredClone(d); assert.throws(() => commitImport(d, s, source, { [preview.rows[0].rowId]: { action: 'create', reviewed: true } })); assert.deepEqual(d, saved);
-  assert.throws(() => previewImport(d, { userId: 'admin', activeUnitId: 'u0' }, source));
+  assert.doesNotThrow(() => previewImport(d, { userId: 'admin', activeUnitId: 'u0' }, source));
+  assert.throws(() => previewImport(d, { userId: 'gestor', activeUnitId: 'u0' }, source));
 });
 test('homônimos, repetidos e divergência de cargo exigem revisão; sem sobrescrita ou associação automática', () => {
   const d = seed(), name = d.professionals.find(p => p.id === 'u1p0')!.fullName;

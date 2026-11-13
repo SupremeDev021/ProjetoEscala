@@ -84,7 +84,7 @@ export function DashboardPage() {
     const id = ++request.current;
     setBusy(true);
     try {
-      const next = await dashboardRepository.load("local");
+      const next = await dashboardRepository.load();
       if (id === request.current) {
         setData(next);
         setError("");

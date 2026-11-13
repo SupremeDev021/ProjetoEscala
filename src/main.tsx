@@ -63,11 +63,14 @@ import type {
   WorkAssignment,
   WorkRegime,
 } from "./models";
-import { seed } from "./seed";
+import { initialData } from "./initialData";
+import { previewLegacyCleanup } from "./legacyCleanup";
+import { ImportProfessionals } from "./components/ImportProfessionals";
 import {
   STORAGE_KEY,
   key,
   available,
+  admin,
   publishAssembly,
   resumeAssembly,
   confirmAssemblyRole,
@@ -87,9 +90,9 @@ import {
 } from "./domain";
 import "./style.css";
 import { DashboardPage } from "./dashboard/Dashboard";
+import { unitSlug } from "./dashboard/data";
 const baseUrl = import.meta.env.BASE_URL;
 const AppRouter = baseUrl === "/" ? BrowserRouter : HashRouter;
-const dashboardUrl = `${baseUrl}${baseUrl === "/" ? "dashboard" : "#/dashboard"}`;
 const dateLabel = (v: string) =>
   new Date(v + "T12:00:00").toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -104,7 +107,7 @@ function load(): Data {
     const x = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
     if (x?.published && x?.links && x?.users) return ensureRoleCatalog(x);
   } catch {}
-  return ensureRoleCatalog(seed());
+  return ensureRoleCatalog(initialData());
 }
 type Ctx = {
   d: Data;
@@ -688,7 +691,8 @@ function SchedulePage() {
   const previewCount = previewRoles.reduce((total, r) => total + draft.selections[r.id].length, 0);
   return <div data-dirty={dirty}>
     <PageTitle eyebrow="PLANEJAMENTO ASSISTENCIAL" title="Montagem de escala" subtitle="Confirme cada cargo e publique o plantão completo ao final.">
-      <a className="btn" href={dashboardUrl} target="_blank" rel="noreferrer"><Monitor size={17} /> Abrir dashboard</a>
+      {unit?.active ? <a className="btn" href={`${baseUrl}${baseUrl === "/" ? "" : "#/"}painel/unidade/${encodeURIComponent(unitSlug(unit.name))}`} target="_blank" rel="noreferrer"><Monitor size={17} /> Abrir dashboard</a>
+        : <p>Selecione uma unidade para abrir o dashboard.</p>}
     </PageTitle>
     <div className="stats assemblystats">
       <Stat icon={<Building2 />} label="Unidade em gestão" value={unit.name} note="Unidade ativa" />
@@ -1056,6 +1060,7 @@ function Professionals() {
           {!list.length && <Empty text="Nenhum profissional encontrado." />}
         </div>
       </section>
+      <ImportProfessionals key={s.activeUnitId} d={d} s={s} change={change} />
       {edit && (
         <Modal
           title={
@@ -1673,6 +1678,47 @@ function Snapshot({ value }: { value: unknown }) {
     </div>
   );
 }
+const cleanupLabels: Record<string, string> = {
+  professionals: "Profissionais", links: "Vínculos", teams: "Equipes", members: "Integrantes",
+  schedules: "Escalas", published: "Publicações", events: "Histórico",
+};
+
+function CleanupPanel() {
+  const { d, s, change, toast } = useApp();
+  const [preview, setPreview] = useState<Awaited<ReturnType<typeof previewLegacyCleanup>> & { snapshot: string }>();
+  const [exported, setExported] = useState(false);
+  const current = preview?.snapshot === JSON.stringify(d);
+  return <section className="panel integration-panel">
+    <h2>Limpeza de dados de exemplo</h2>
+    <p>A prévia só inclui registros que correspondem aos exemplos originais. Revise as quantidades e exporte uma cópia antes de excluir.</p>
+    <button className="btn" onClick={async () => {
+      setExported(false);
+      try { setPreview({ ...await previewLegacyCleanup(d), snapshot: JSON.stringify(d) }); }
+      catch { toast("Não foi possível preparar a prévia de limpeza."); }
+    }}>Revisar exclusões</button>
+    {preview && current && <div>
+      <ul>{Object.entries(preview.counts).map(([key, count]) => <li key={key}>{cleanupLabels[key]}: {count}</li>)}</ul>
+      <button className="btn" onClick={() => {
+        const url = URL.createObjectURL(new Blob([preview.snapshot], { type: "application/json" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "painel-escala-recuperacao.json";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setExported(true);
+      }}>Exportar cópia de recuperação</button>
+      <button className="btn" disabled={!exported || !Object.values(preview.counts).some(Boolean)} onClick={() => {
+        if (change(next => {
+          admin(next, s);
+          if (JSON.stringify(next) !== preview.snapshot) throw Error("Os dados mudaram. Refaça a prévia.");
+          Object.assign(next, preview.cleaned);
+        }, "Dados de exemplo removidos.")) setPreview(undefined);
+      }}>Confirmar exclusão dos exemplos</button>
+    </div>}
+    {preview && !current && <p>Os dados mudaram. Refaça a prévia.</p>}
+  </section>;
+}
+
 function Administration() {
   const { d, s, user, change } = useApp();
   const [tab, setTab] = useState("units");
@@ -1844,6 +1890,7 @@ function Administration() {
           )}
         </div>
       </section>
+      <CleanupPanel />
       {unit && (
         <Modal
           title={
