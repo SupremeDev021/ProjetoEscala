@@ -86,4 +86,3 @@ export function commitImport(d: Data, s: Session, source: { rows: ImportRow[]; i
   }
   Object.assign(d, next); return totals;
 }
-export const fictionalImport = 'NOME;CBO;CARGO;EQUIPE\nPessoa Fictícia Aurora;223505;Enfermeiro;A\nPessoa Fictícia Bento;225124;Pediatra;B\nPessoa Fictícia Revisão;000123;Cargo a revisar;\nPessoa Fictícia Ignorada;221105;;';

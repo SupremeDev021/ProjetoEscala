@@ -65,7 +65,6 @@ import type {
 import { initialData } from "./initialData";
 import { withPublishedRoster } from "./publishedRoster";
 import { previewLegacyCleanup } from "./legacyCleanup";
-import { ImportProfessionals } from "./components/ImportProfessionals";
 import {
   STORAGE_KEY,
   key,
@@ -941,7 +940,7 @@ function Professionals() {
       <div className="callout">
         <Info size={18} />
         <span>
-          Todos os registros são fictícios. Desativar um profissional preserva
+          Desativar um profissional preserva
           escalas anteriores e o histórico.
         </span>
       </div>
@@ -1060,7 +1059,6 @@ function Professionals() {
           {!list.length && <Empty text="Nenhum profissional encontrado." />}
         </div>
       </section>
-      <ImportProfessionals key={s.activeUnitId} d={d} s={s} change={change} />
       {edit && (
         <Modal
           title={
@@ -1954,7 +1952,7 @@ function Administration() {
             }}
           >
             <div className="modalbody formgrid">
-              <Field label="Nome fictício *">
+              <Field label="Nome">
                 <input
                   required
                   value={access.displayName}

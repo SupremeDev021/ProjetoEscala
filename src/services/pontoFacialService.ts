@@ -50,32 +50,3 @@ export function confirmedProfessionals(records: PunchRecord[], c: ShiftContext, 
 export interface PontoFacialService {
   load(context: ShiftContext): Promise<PunchRecord[]>;
 }
-// In-memory demonstration only: never reads devices or stores biometrics.
-export class SimulatedPontoFacialService implements PontoFacialService {
-  private sessions = new Map<string, { records: PunchRecord[]; next?: string; due: number }>();
-  private session(c: ShiftContext) {
-    const key = shiftId(c);
-    let session = this.sessions.get(key);
-    if (!session) {
-      session = { records: [], next: c.professionalIds[1], due: Date.now() + 30000 };
-      this.sessions.set(key, session);
-      if (c.professionalIds[0]) this.register(c, c.professionalIds[0]);
-    }
-    return session;
-  }
-  register(c: ShiftContext, professionalId: string) {
-    if (!c.professionalIds.includes(professionalId)) return;
-    const session = this.session(c);
-    session.records.push({ professionalId, unitId: c.unitId, timestamp: new Date().toISOString(),
-      type: 'entry', equipmentId: 'simulated', validation: 'confirmed', received: true, shiftId: shiftId(c) });
-  }
-  async load(c: ShiftContext) {
-    const session = this.session(c);
-    if (session.next && Date.now() >= session.due) {
-      this.register(c, session.next);
-      session.next = undefined;
-    }
-    return [...session.records];
-  }
-}
-export const simulatedPontoFacialService = new SimulatedPontoFacialService();
