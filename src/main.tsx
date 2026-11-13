@@ -693,6 +693,8 @@ function SchedulePage() {
   const [pending, setPending] = useState<(() => void) | null>(null);
   const [copyNotice, setCopyNotice] = useState("");
   const [teamPicker, setTeamPicker] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const previewTrigger = useRef<HTMLButtonElement>(null);
   const hasChanges = (id: string) => Object.hasOwn(draft.selections, id) && !draft.confirmed[id];
   const dirty = Object.keys(draft.selections).some(hasChanges);
   const openAssembly = (next: Assembly) => {
@@ -790,6 +792,7 @@ function SchedulePage() {
   const isToday = draft.date === todaySaoPaulo();
   const ready = isToday && roles.length > 0 && roles.every(r => draft.confirmed[r.id]) && roles.some(r => draft.selections[r.id]?.length);
   const includes24h = roles.some(r => draft.selections[r.id]?.some(id => draft.workAssignments?.[id]?.workRegime === "24h"));
+  const previewRoles = roles.filter(r => draft.selections[r.id]?.length);
   return <div data-dirty={dirty}>
     <PageTitle eyebrow="PLANEJAMENTO ASSISTENCIAL · DADOS FICTÍCIOS" title="Montagem de escala" subtitle="Confirme cada cargo e publique o plantão completo ao final.">
       <a className="btn" href={dashboardUrl} target="_blank" rel="noreferrer"><Monitor size={17} /> Abrir dashboard</a>
@@ -797,9 +800,33 @@ function SchedulePage() {
     <div className="stats assemblystats">
       <Stat icon={<Building2 />} label="Unidade em gestão" value={unit.name} note="Unidade fictícia de demonstração" />
       <Stat icon={<Users />} label="Profissionais ativos" value={available(d, s.activeUnitId).length} note="Disponíveis para compor escalas" />
-      <Stat icon={<LayoutGrid />} label="Equipes padrão" value={d.teams.filter(t => t.unitId === s.activeUnitId && t.active).length} note="Modelos preservados" />
     </div>
     {copyNotice && <p role="status" className="callout">{copyNotice}</p>}
+    <div className="assembly-workspace">
+    <aside className="assembly-preview">
+      <button className="btn" ref={previewTrigger} aria-expanded={previewOpen}
+        aria-controls={previewOpen ? "assembly-preview" : undefined}
+        onClick={() => setPreviewOpen(open => !open)}><Eye size={16} /> Visualizar escala</button>
+      {previewOpen && <section id="assembly-preview" className="panel assembly-preview-panel" aria-labelledby="assembly-preview-title">
+        <div className="assembly-preview-heading">
+          <h2 id="assembly-preview-title">Prévia da escala em montagem</h2>
+          <button className="iconbtn" aria-label="Fechar prévia" onClick={() => {
+            setPreviewOpen(false);
+            previewTrigger.current?.focus();
+          }}><X size={17} /></button>
+        </div>
+        <p>{unit.name} · {dateLabel(draft.date)} · {shiftLabel(draft.shift)}</p>
+        <div className="assembly-preview-list">
+          {previewRoles.length ? previewRoles.map(r => <section key={r.id}>
+            <h3>{r.name}</h3>
+            <ul className="member-list">{draft.selections[r.id].map(id => <li key={id}>
+              <b>{d.professionals.find(p => p.id === id)?.fullName || id}</b>
+              <span>{regimeLabel(draft.workAssignments?.[id]?.workRegime)}</span>
+            </li>)}</ul>
+          </section>) : <p>Nenhum profissional selecionado na montagem.</p>}
+        </div>
+      </section>}
+    </aside>
     <div className="assembly-editor">
     <section className="panel assembly-context">
       <div className="sectionheading"><h2>Configuração Escala</h2></div>
@@ -865,8 +892,12 @@ function SchedulePage() {
       })}{!visible.length && <Empty text="Nenhum profissional encontrado para este cargo ou pesquisa." />}</div>
       <p className="listnote">Confirmar cargo salva a composição. O dashboard só muda após a publicação final.</p>
     </section> : <Empty text="Cadastre ao menos um cargo ativo para montar a escala." />}
-    </div>
-    <div className="savebar"><div>{roles.filter(r => draft.confirmed[r.id]).length} de {roles.length} cargos confirmados</div><div>
+    <div className="assembly-actions">
+      <p className="assembly-action-status" role="status">
+        {roles.filter(r => draft.confirmed[r.id]).length} de {roles.length} cargos confirmados
+        {role && !ids.length && " · Confirmar cargo registra uma composição vazia."}
+      </p>
+      <div className="assembly-buttons">
       <div className="role-navigation" aria-label="Navegação de cargos" role="group">
         <button className="btn" disabled={roleIndex <= 0} onClick={() => selectRole(roles[roleIndex - 1].id)}><ChevronLeft size={16} /> Voltar</button>
         <button className="btn" disabled={roleIndex < 0 || roleIndex === roles.length - 1} onClick={() => selectRole(roles[roleIndex + 1].id)}>Próximo <ChevronRight size={16} /></button>
@@ -875,9 +906,11 @@ function SchedulePage() {
         if (Object.keys(draft.selections).length || Object.keys(draft.confirmed).length) setPending(() => reset);
         else reset();
       }}>Reiniciar montagem</button>
-      <button className="btn" disabled={!role || !isToday || !!draft.confirmed[role.id]} onClick={confirmRole}><Check size={16} />{ids.length ? "Confirmar cargo" : "Confirmar: Nenhum profissional para este cargo"}</button>
+      <button className="btn" disabled={!role || !isToday || !!draft.confirmed[role.id]} onClick={confirmRole}><Check size={16} /> Confirmar cargo</button>
       {role && <button className="btn primary" disabled={!ready} onClick={() => setPublish(true)}><Send size={16} /> Publicar escala</button>}
     </div></div>
+    </div>
+    </div>
     {!isToday && <p className="listnote">Rascunho para {dateLabel(draft.date)}. A confirmação e a publicação ficam disponíveis na data da escala.</p>}
     {teamPicker !== null && <Modal title="Adicionar equipe" onClose={() => setTeamPicker(null)}>
       <div className="modalbody">
