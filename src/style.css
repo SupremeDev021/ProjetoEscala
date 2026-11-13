@@ -2293,8 +2293,90 @@ td > svg {
   max-width: 720px;
   gap: 12px;
 }
-.assembly-editor + .savebar {
-  max-width: 720px;
+.assembly-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 720px) minmax(235px, 300px);
+  grid-template-areas: "editor preview";
+  align-items: start;
+  gap: 14px;
+}
+.assembly-editor {
+  grid-area: editor;
+}
+.assembly-preview {
+  grid-area: preview;
+  min-width: 0;
+}
+.assembly-preview-panel {
+  margin: 8px 0 0;
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+.assembly-preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.assembly-preview-heading .iconbtn {
+  flex: none;
+}
+.assembly-preview-panel p {
+  margin: 6px 0;
+}
+.assembly-preview-list {
+  max-height: 360px;
+  overflow: auto;
+}
+.assembly-preview-list section {
+  margin-top: 10px;
+}
+.assembly-actions {
+  min-width: 0;
+}
+.assembly-action-status {
+  min-height: 3lh;
+  margin: 0 0 5px;
+  color: #587184;
+  font-size: 11px;
+}
+.assembly-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+  align-items: stretch;
+  gap: 6px;
+}
+.assembly-buttons .btn {
+  justify-content: center;
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+}
+.assembly-buttons .btn svg {
+  flex: none;
+}
+.assembly-editor .peoplepanel .peoplelist {
+  min-height: 165px;
+}
+@media (max-width: 1150px) {
+  .assembly-workspace {
+    grid-template-columns: minmax(0, 720px);
+    grid-template-areas: "editor" "preview";
+  }
+}
+@media (max-width: 900px) {
+  .assembly-buttons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .assembly-buttons .role-navigation {
+    grid-column: 1 / -1;
+  }
+  .assembly-buttons .role-navigation .btn {
+    flex: 1;
+  }
+  .assembly-buttons .primary {
+    grid-column: 1 / -1;
+  }
 }
 .assembly-editor > .panel {
   min-width: 0;
