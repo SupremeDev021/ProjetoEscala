@@ -47,13 +47,14 @@ export interface TeamMember {
   teamId: string;
   professionalId: string;
   roleId: string;
+  workAssignment?: WorkAssignment;
 }
 export interface Schedule {
   id: string;
   unitId: string;
   date: string;
   shift: Shift;
-  teamId: string;
+  teamId?: string;
   roleId: string;
   professionalIds: string[];
   workAssignments?: Record<string, WorkAssignment>;

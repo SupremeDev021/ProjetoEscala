@@ -72,6 +72,7 @@ import {
   publishAssembly,
   resumeAssembly,
   confirmAssemblyRole,
+  teamAdditions,
   clearAssemblyConfirmations,
   copyPublication,
   todaySaoPaulo,
@@ -659,13 +660,13 @@ function SchedulePage() {
   const location = useLocation();
   const roles = d.roles.filter(r => r.active);
   const fresh = (): Assembly => ({ unitId: s.activeUnitId, date: todaySaoPaulo(), shift: "day",
-    teamId: d.teams.find(t => t.unitId === s.activeUnitId && t.active)?.id || "", selections: {}, confirmed: {} });
+    selections: {}, confirmed: {} });
   const contextStorageKey = JSON.stringify(["rio-assembly-context", s.userId, s.activeUnitId]);
   const [draft, setDraft] = useState(() => {
     const current = fresh();
     try {
       const context = JSON.parse(sessionStorage.getItem(contextStorageKey) || "null");
-      if (context?.date === current.date && d.teams.some(t => t.id === context.teamId && t.unitId === current.unitId && t.active)) {
+      if (context?.date === current.date && (!context.teamId || d.teams.some(t => t.id === context.teamId && t.unitId === current.unitId && t.active))) {
         const { shift, teamId, workRegime, startTime } = context;
         return resumeAssembly(d, s, { ...current, shift, teamId, workRegime, startTime });
       }
@@ -679,6 +680,7 @@ function SchedulePage() {
   const [publish, setPublish] = useState(false);
   const [pending, setPending] = useState<(() => void) | null>(null);
   const [copyNotice, setCopyNotice] = useState("");
+  const [teamPicker, setTeamPicker] = useState<string | null>(null);
   const hasChanges = (id: string) => Object.hasOwn(draft.selections, id) && !draft.confirmed[id];
   const dirty = Object.keys(draft.selections).some(hasChanges);
   const openAssembly = (next: Assembly) => {
@@ -689,6 +691,7 @@ function SchedulePage() {
     setPublish(false);
     setPending(null);
     setCopyNotice("");
+    setTeamPicker(null);
   };
   const { date, shift, teamId } = draft;
   useEffect(() => {
@@ -734,6 +737,24 @@ function SchedulePage() {
     setDraft(x => ({ ...x, workAssignments: { ...x.workAssignments, [id]: assignment },
       confirmed: { ...x.confirmed, [role.id]: false } }));
   };
+  const teams = d.teams.filter(t => t.unitId === draft.unitId && t.active);
+  const additions = teams.some(t => t.id === teamPicker) && teamPicker
+    ? teamAdditions(d, s, draft, teamPicker) : [];
+  const addTeam = () => {
+    setDraft(current => {
+      const selections = { ...current.selections };
+      const workAssignments = { ...current.workAssignments };
+      const confirmed = { ...current.confirmed };
+      for (const { professional, assignment } of additions) {
+        const { id, roleId } = professional;
+        selections[roleId] = [...(selections[roleId] || []), id];
+        if (assignment && !workAssignments[id]) workAssignments[id] = assignment;
+        confirmed[roleId] = false;
+      }
+      return { ...current, selections, workAssignments, confirmed };
+    });
+    setTeamPicker(null);
+  };
   const confirmRole = () => {
     if (change(x => confirmAssemblyRole(x, s, draft, role.id), "Composição do cargo salva.")) {
       setDraft(x => ({ ...x, confirmed: { ...x.confirmed, [role.id]: true } }));
@@ -748,7 +769,7 @@ function SchedulePage() {
     {draft.confirmed[r.id] ? <span className="role-complete"><Check size={16} aria-hidden="true" /> Concluído</span>
       : hasChanges(r.id) && <span className="role-unsaved">Alterações não salvas</span>}
   </>;
-  const ready = roles.length > 0 && roles.every(r => draft.confirmed[r.id]) && roles.some(r => draft.selections[r.id]?.length) && !!draft.teamId;
+  const ready = roles.length > 0 && roles.every(r => draft.confirmed[r.id]) && roles.some(r => draft.selections[r.id]?.length);
   const includes24h = roles.some(r => draft.selections[r.id]?.some(id => draft.workAssignments?.[id]?.workRegime === "24h"));
   return <div data-dirty={dirty}>
     <PageTitle eyebrow="PLANEJAMENTO ASSISTENCIAL · DADOS FICTÍCIOS" title="Montagem de escala" subtitle="Confirme cada cargo e publique o plantão completo ao final.">
@@ -798,11 +819,7 @@ function SchedulePage() {
     </section>
     {role ? <section className="panel peoplepanel">
       <div className="sectionheading"><div><h2>{role.name}</h2><p>{ids.length} profissionais selecionados</p></div>
-        <Field label="Equipe"><select aria-label="Equipe" value={draft.teamId} onChange={e => parameter({ teamId: e.target.value })}><option value="" disabled>Selecione uma equipe</option>{d.teams.filter(t => t.unitId === s.activeUnitId && t.active).map(t => <option key={t.id} value={t.id}>Equipe {t.name}</option>)}</select></Field>
-        <button className="btn" disabled={!draft.teamId} onClick={() => {
-          const load = () => update(d.members.filter(m => m.teamId === draft.teamId && m.roleId === role.id && all.some(p => p.id === m.professionalId)).map(m => m.professionalId));
-          if (ids.length) setPending(() => load); else load();
-        }}><RotateCcw size={16} /> Carregar equipe padrão</button>
+        <button className="btn" disabled={!teams.length} onClick={() => setTeamPicker("")}><Plus size={16} /> Adicionar equipe</button>
       </div>
       <div className="searchbox"><Search size={17} /><input aria-label="Pesquisar profissional" value={search} placeholder="Pesquisar profissional pelo nome..." onChange={e => setSearch(e.target.value)} /></div>
       <div className="selectiontools"><button onClick={() => update([...new Set([...ids, ...visible.map(p => p.id)])])}>Selecionar todos visíveis</button><button onClick={() => update([])}>Limpar seleção</button></div>
@@ -824,11 +841,6 @@ function SchedulePage() {
               onChange={e => updateWorkAssignment(p.id, workAssignment({ workRegime: e.target.value as WorkRegime, startTime: assignment.startTime }))}>
               {workRegimes.map(regime => <option key={regime} value={regime}>{regimeLabel(regime)}</option>)}
             </select></Field>
-            {assignment.workRegime === "diarist" && <Field label="Início da jornada">
-              <input type="time" min="07:00" max="11:00" value={assignment.startTime}
-                aria-label={`Início da jornada de ${p.fullName}`} aria-describedby={workError ? errorId : undefined}
-                onChange={e => updateWorkAssignment(p.id, { ...assignment, startTime: e.target.value })} />
-            </Field>}
             {workError && <p id={errorId} role="alert">{workError}</p>}
           </div>}
         </div>;
@@ -840,9 +852,26 @@ function SchedulePage() {
         if (Object.keys(draft.selections).length || Object.keys(draft.confirmed).length) setPending(() => reset);
         else reset();
       }}>Reiniciar montagem</button>
-      <button className="btn" disabled={!role || !draft.teamId || !!draft.confirmed[role.id]} onClick={confirmRole}><Check size={16} />{ids.length ? "Confirmar cargo" : "Confirmar: Nenhum profissional para este cargo"}</button>
+      <button className="btn" disabled={!role || !!draft.confirmed[role.id]} onClick={confirmRole}><Check size={16} />{ids.length ? "Confirmar cargo" : "Confirmar: Nenhum profissional para este cargo"}</button>
       {role && <button className="btn primary" disabled={!ready} onClick={() => setPublish(true)}><Send size={16} /> Publicar escala</button>}
     </div></div>
+    {teamPicker !== null && <Modal title="Adicionar equipe" onClose={() => setTeamPicker(null)}>
+      <div className="modalbody">
+        <Field label="Equipe"><select value={teamPicker} onChange={e => setTeamPicker(e.target.value)}>
+          <option value="">Selecione uma equipe</option>
+          {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+        </select></Field>
+        {teamPicker && (additions.length
+          ? <ul className="team-preview" aria-label="Profissionais a incluir">{additions.map(({ professional, assignment }) =>
+              <li key={professional.id}>{professional.fullName} · {roles.find(r => r.id === professional.roleId)?.name}
+                {assignment && ` · ${regimeLabel(assignment.workRegime)}`}</li>)}</ul>
+          : <p role="status">Nenhum novo profissional elegível nesta equipe.</p>)}
+      </div>
+      <footer>
+        <button className="btn" onClick={() => setTeamPicker(null)}>Cancelar</button>
+        <button className="btn primary" disabled={!additions.length} onClick={addTeam}>Confirmar inclusão</button>
+      </footer>
+    </Modal>}
     {pending && <Confirm title="Substituir a montagem ou seleção atual?" onClose={() => setPending(null)} onConfirm={() => { pending(); setPending(null); }}>As seleções afetadas serão descartadas. Deseja continuar?</Confirm>}
     {publish && <Confirm title="Publicar escala completa?" onClose={() => setPublish(false)} onConfirm={() => {
       if (todaySaoPaulo() !== draft.date) { openAssembly(resumeAssembly(d, s, fresh())); toast("O dia mudou. Revise a nova montagem."); return; }
@@ -853,7 +882,8 @@ function SchedulePage() {
         next = resumeAssembly(x, s, next);
       }, "Escala completa publicada. O dashboard recebeu a nova composição.")) openAssembly(next);
       else setPublish(false);
-    }}><p>{unit.name} · {dateLabel(draft.date)} · {shiftLabel(draft.shift)} · Equipe {d.teams.find(t => t.id === draft.teamId)?.name}</p>
+    }}><p>{unit.name} · {dateLabel(draft.date)} · {shiftLabel(draft.shift)}
+      {draft.teamId && ` · Equipe ${d.teams.find(t => t.id === draft.teamId)?.name}`}</p>
       {includes24h && <p>Os profissionais com jornada de 24 horas também integram o turno noturno.</p>}
       <ul>{roles.map(r => <li key={r.id}>{r.name}: {draft.selections[r.id]?.length || 0} profissionais</li>)}</ul></Confirm>}
   </div>;
@@ -1427,7 +1457,7 @@ function HistoryPage() {
       <section className="panel">
         <div className="sectionheading"><h2>Publicações · Copiar escala</h2></div>
         {publications.map(records => { const p = records[0]; return <div className="publicationrow" key={[p.unitId, p.date, p.shift, p.teamId].join("|")}>
-          <span><b>{d.units.find(u => u.id === p.unitId)?.name}</b><br />{dateLabel(p.date)} · {p.workRegime === "24h" ? "Diurno e noturno" : shiftLabel(p.shift)} · {records.some(r => r.workAssignments) ? "Jornadas individuais" : regimeLabel(p.workRegime)} · Equipe {d.teams.find(t => t.id === p.teamId)?.name} · {new Set(records.map(r => r.roleId)).size} cargos</span>
+          <span><b>{d.units.find(u => u.id === p.unitId)?.name}</b><br />{dateLabel(p.date)} · {p.workRegime === "24h" ? "Diurno e noturno" : shiftLabel(p.shift)} · {records.some(r => r.workAssignments) ? "Jornadas individuais" : regimeLabel(p.workRegime)}{p.teamId && ` · Equipe ${d.teams.find(t => t.id === p.teamId)?.name}`} · {new Set(records.map(r => r.roleId)).size} cargos</span>
           <button className="btn" onClick={() => {
             if (p.unitId !== s.activeUnitId) { setCopy(records); return; }
             try { copyPublication(d, s, records); nav("/escala", { state: { publication: records } }); } catch (e) { toast((e as Error).message); }

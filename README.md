@@ -39,7 +39,7 @@ Os nomes contraditórios “Unidade Modelo Norte/Sul” do cenário foram resolv
 ## Montagem por cargo e cópia pelo Histórico
 
 1. Entre como gestor ou administrador e defina unidade e turno. A data é somente leitura e sempre corresponde ao dia atual em `America/Sao_Paulo`.
-2. Selecione qualquer cargo na lista e escolha a equipe na seção de profissionais. Marque profissionais ou carregue a equipe padrão. Para cada pessoa selecionada, escolha a jornada. O modelo fixo é preservado.
+2. Selecione qualquer cargo na lista e marque os profissionais elegíveis. Use **Adicionar equipe** para escolher um modelo da unidade, revisar os nomes que serão incluídos e confirmar. A composição pode combinar várias equipes e seleções individuais. Cada pessoa selecionada tem sua própria jornada.
 3. Use **Confirmar cargo** para salvar a composição no navegador. A lista e o seletor exibem um check verde com o texto **Concluído**. Sem seleção, confirme explicitamente **Nenhum profissional para este cargo**. Trocar de cargo preserva as edições em andamento. Ao editar um cargo confirmado, o seletor mostra **Alterações não salvas** até a próxima confirmação.
 4. **Publicar escala** fica disponível quando todos os cargos estão confirmados e há pelo menos uma pessoa. Confira o resumo de unidade, data, turno, equipe e quantidades por cargo e confirme a publicação final.
 5. A montagem restaura as composições e jornadas confirmadas para a mesma unidade, data, turno e equipe. A publicação conjunta valida tudo em uma cópia isolada antes de substituir o estado. Cargos vazios substituem nomes anteriormente publicados na mesma chave. Versões e eventos de auditoria são preservados. O fluxo reinicia e limpa as confirmações daquela montagem após o sucesso.
@@ -147,6 +147,6 @@ O cadastro básico mantém nome e cargo, vínculos e ativação/desativação. A
 
 Em Profissionais do CER BARRA há uma prévia de importação **fictícia**, com decisão e confirmação explícitas, códigos desconhecidos e possíveis correspondências encaminhados para revisão. Não foi recebida a planilha nominal nesta solicitação. A demonstração pública não permite carregar ou editar uma listagem real e não persiste CPF/CNS.
 
-A montagem oferece **12×36**, **24 horas** e **diarista de 8 horas** por profissional. A jornada de 24 horas começa no diurno e cobre também o noturno até as 07h. Diaristas têm início configurável entre 07h e 11h (padrão 08h) e deixam o painel ao completar 8 horas. Ao copiar uma escala antiga, os profissionais recebem a jornada gravada na origem. Não há geração de recorrência ou cálculo automático de descanso.
+A montagem oferece **12×36**, **24 horas** e **diarista de 8 horas** por profissional. A jornada de 24 horas começa no diurno e cobre também o noturno até as 07h. Diaristas seguem o horário gravado na jornada ou o padrão existente de 08h e deixam o painel ao completar 8 horas. Ao copiar uma escala antiga, os profissionais recebem a jornada gravada na origem. Não há geração de recorrência ou cálculo automático de descanso.
 
 Detalhes, contratos, limitações e lista do que falta para conectar: [Integração Biofinger/Hikvision](docs/integracao-biofinger.md). `npm test` inclui as regressões de integração, importação/CBO e jornadas; `npm run build` valida TypeScript e o bundle.

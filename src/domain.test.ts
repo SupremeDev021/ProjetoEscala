@@ -17,6 +17,7 @@ import {
   confirmAssemblyRole,
   resumeAssembly,
   clearAssemblyConfirmations,
+  teamAdditions,
   type Assembly,
 } from "./domain";
 function seed() {
@@ -25,6 +26,43 @@ function seed() {
   return d;
 }
 const manager = { userId: "gestor", activeUnitId: "u1" };
+test("composição sem equipe não substitui escalas antigas vinculadas a equipes", () => {
+  const d = seed();
+  const linked = structuredClone(d.published.filter(record => record.teamId));
+  const input: Assembly = {
+    unitId: "u1", date: todaySaoPaulo(), shift: "day",
+    selections: { r0: ["u1p0"] }, confirmed: {}, workAssignments: { u1p0: { workRegime: "diarist", startTime: "09:00" } },
+  };
+  for (const role of d.roles) {
+    confirmAssemblyRole(d, manager, input, role.id);
+    input.confirmed[role.id] = true;
+  }
+  const restored = resumeAssembly(JSON.parse(JSON.stringify(d)), manager, input);
+  assert.deepEqual(restored.workAssignments, input.workAssignments);
+  publishAssembly(d, manager, restored);
+  assert.deepEqual(d.published.filter(record => record.teamId), linked);
+  const manual = d.published.filter(record => !record.teamId);
+  assert.equal(manual.length, d.roles.length);
+  assert.equal(copyPublication(d, manager, manual).assembly.teamId, undefined);
+});
+
+test("prévia de equipe lista apenas novas pessoas elegíveis e oferece jornadas compatíveis", () => {
+  const d = seed();
+  const input: Assembly = {
+    unitId: "u1", date: todaySaoPaulo(), shift: "day", selections: { r0: ["u1p0"] }, confirmed: {},
+  };
+  const diarist = d.members.find(m => m.teamId === "u1A" && m.professionalId === "u1p1")!;
+  diarist.workAssignment = { workRegime: "diarist", startTime: "09:00" };
+  d.members.push({ ...diarist }, { teamId: "u1A", professionalId: "u0p1", roleId: "r1" });
+  d.professionals.find(p => p.id === "u1p2")!.active = false;
+  const before = structuredClone(d);
+  const additions = teamAdditions(d, manager, input, "u1A");
+  assert.deepEqual(additions.map(item => item.professional.id), ["u1p1", "u1p3", "u1p4", "u1p5"]);
+  assert.deepEqual(additions[0].assignment, diarist.workAssignment);
+  assert.equal(teamAdditions(d, manager, { ...input, shift: "night" }, "u1A")[0].assignment, undefined);
+  assert.throws(() => teamAdditions(d, manager, input, "u0A"), /Equipe inválida/);
+  assert.deepEqual(d, before);
+});
 test("confirmações restauram seleções por contexto sem alterar a publicação", () => {
   const d = seed();
   const professionalId = available(d, "u1", "r0")[0].id;
