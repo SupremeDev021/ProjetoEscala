@@ -1,7 +1,7 @@
 import { IntegrationPage } from "./components/IntegrationPage";
 import { ensureRoleCatalog } from "./imports/cbo";
 import { regimeLabel, validateRegime, workAssignment, workRegimes } from "./services/workRegimes";
-import logo from "../copy-of-untitled-design-11-.webp";
+import logo from "../logors.png";
 import { authorizedUnits, resolveLocalSession, startLocalSession } from "./services/localLogin";
 import React, {
   useState,
@@ -40,13 +40,11 @@ import {
   Moon,
   ShieldCheck,
   LogOut,
-  RotateCcw,
   Monitor,
   Save,
   Send,
   UserRound,
   ClipboardList,
-  Activity,
   Menu,
   Copy,
   Eye,
@@ -317,33 +315,6 @@ function Confirm({
     </Modal>
   );
 }
-function Restore() {
-  const { toast, logout } = useApp();
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button className="restore" title="Restaurar dados locais" aria-label="Restaurar dados locais" onClick={() => setOpen(true)}>
-        <RotateCcw size={15} />
-        Restaurar dados locais
-      </button>
-      {open && (
-        <Confirm
-          title="Restaurar dados locais?"
-          onClose={() => setOpen(false)}
-          onConfirm={() => {
-            localStorage.removeItem(STORAGE_KEY);
-            sessionStorage.removeItem("rio-session");
-            logout();
-            toast("Dados locais restaurados.");
-            window.location.assign(baseUrl);
-          }}
-        >
-          Os dados locais serão substituídos pelos registros iniciais.
-        </Confirm>
-      )}
-    </>
-  );
-}
 function Login() {
   const { login, user } = useApp();
   const nav = useNavigate();
@@ -356,12 +327,11 @@ function Login() {
     </div></header>
     <main className="entry-main">
       <section className="entry-card" aria-labelledby="entry-title">
-        <h1 id="entry-title">Painel Escala</h1>
+        <h1 id="entry-title">PAINEL ESCALA</h1>
         <button className="btn primary" onClick={() => {
           if (login()) nav("/escala", { replace: true });
           else setDenied(true);
         }}>Entrar com Google</button>
-        <p>Login Google simulado</p>
         {denied && <p role="alert">Acesso não autorizado. Solicite autorização ao administrador.</p>}
       </section>
     </main>
@@ -413,15 +383,10 @@ function Layout() {
         >
           <X size={18} />
         </button>
-        <Link to="/escala" className="brand" aria-label="Painel Escala" onClick={(e) => guarded(e, "/escala")}>
-          <span className="brandicon">
-            <Activity />
-          </span>
-          <span>
-            Rio Saúde<small>Painel Escala</small>
-          </span>
+        <Link to="/escala" className="brand sidebar-brand" aria-label="Painel de escala" onClick={(e) => guarded(e, "/escala")}>
+          <img src={logo} alt="" />
+          <span>Painel de escala</span>
         </Link>
-        <div className="navcaption">GESTÃO DE ESCALAS</div>
         <nav aria-label="Gestão de escalas">
           {navItems
             .filter(
@@ -453,7 +418,6 @@ function Layout() {
               <span>Abrir dashboard</span> <ArrowUpRight size={16} />
             </a>
           </div>
-          {user.role === "global_admin" && <Restore />}
         </div>
       </aside>
       <div className="workspace">
@@ -469,8 +433,6 @@ function Layout() {
             >
               <Menu />
             </button>
-            <span>Gestão de escalas</span>
-            <ChevronRight size={14} />
             <b>{navItems.find(([p]) => p === loc.pathname)?.[1]}</b>
           </div>
           <div className="topactions">

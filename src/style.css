@@ -2746,7 +2746,7 @@ td > svg {
   padding: 7px 20px;
 }
 .entry-header img {
-  width: 84px;
+  width: clamp(82px, 17vw, 132px);
   height: 49px;
   object-fit: contain;
 }
@@ -2776,6 +2776,7 @@ td > svg {
 .entry-card h1 {
   margin: 0 0 20px;
   font-size: clamp(24px, 5vw, 30px);
+  text-align: center;
 }
 .entry-card .btn {
   width: 100%;
@@ -2810,20 +2811,31 @@ td > svg {
     margin-left: 68px;
     width: calc(100% - 68px);
   }
-  .sidebar-collapsed .sidebar :is(.brand > span:last-child, .navcaption, nav a > span, .nav-chevron, .dashboardlink > :not(a), .dashboardlink a span) {
+  .sidebar-collapsed .sidebar :is(.sidebar-brand > span, nav a > span, .nav-chevron, .dashboardlink > :not(a), .dashboardlink a span) {
     display: none;
   }
-  .sidebar-collapsed .sidebar :is(nav a, .brand, .dashboardlink a, .restore) {
+  .sidebar-collapsed .sidebar :is(nav a, .brand, .dashboardlink a) {
     justify-content: center;
     padding-inline: 0;
   }
   .sidebar-collapsed .sidebar .dashboardlink {
     padding: 6px;
   }
-  .sidebar-collapsed .sidebar .restore {
-    font-size: 0;
-    gap: 0;
-  }
+}
+.sidebar-brand {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  text-align: center;
+}
+.sidebar-brand img {
+  width: min(100%, 128px);
+  height: 52px;
+  object-fit: contain;
+}
+.sidebar-collapsed .sidebar-brand img {
+  max-width: 100%;
 }
 @media (max-width: 650px) {
   .desktop-sidebar-toggle {
